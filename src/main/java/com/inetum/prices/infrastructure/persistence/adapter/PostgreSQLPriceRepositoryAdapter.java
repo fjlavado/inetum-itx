@@ -7,6 +7,7 @@ import com.inetum.prices.domain.ports.outbound.PriceRepositoryPort;
 import com.inetum.prices.infrastructure.persistence.entity.PriceEntity;
 import com.inetum.prices.infrastructure.persistence.mapper.PriceEntityMapper;
 import com.inetum.prices.infrastructure.persistence.repository.SpringDataPriceRepository;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -32,26 +33,11 @@ import java.util.List;
  * via the Spring configuration class.
  */
 @Component
+@AllArgsConstructor
 public class PostgreSQLPriceRepositoryAdapter implements PriceRepositoryPort {
 
     private final SpringDataPriceRepository springDataRepository;
     private final PriceEntityMapper mapper;
-
-    /**
-     * Constructs the adapter with required dependencies.
-     * <p>
-     * Spring will automatically inject both dependencies via constructor injection.
-     *
-     * @param springDataRepository the Spring Data JPA repository
-     * @param mapper               the MapStruct mapper
-     */
-    public PostgreSQLPriceRepositoryAdapter(
-            SpringDataPriceRepository springDataRepository,
-            PriceEntityMapper mapper
-    ) {
-        this.springDataRepository = springDataRepository;
-        this.mapper = mapper;
-    }
 
     /**
      * {@inheritDoc}
@@ -70,17 +56,6 @@ public class PostgreSQLPriceRepositoryAdapter implements PriceRepositoryPort {
             ProductId productId,
             BrandId brandId
     ) {
-        // Input validation
-        if (applicationDate == null) {
-            throw new IllegalArgumentException("Application date cannot be null");
-        }
-        if (productId == null) {
-            throw new IllegalArgumentException("ProductId cannot be null");
-        }
-        if (brandId == null) {
-            throw new IllegalArgumentException("BrandId cannot be null");
-        }
-
         // Extract primitive values from value objects
         Long brandIdValue = brandId.value();
         Long productIdValue = productId.value();

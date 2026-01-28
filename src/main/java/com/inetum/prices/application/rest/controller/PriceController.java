@@ -5,6 +5,7 @@ import com.inetum.prices.domain.model.Price;
 import com.inetum.prices.domain.model.valueobject.BrandId;
 import com.inetum.prices.domain.model.valueobject.ProductId;
 import com.inetum.prices.domain.ports.inbound.GetPriceUseCase;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -81,9 +82,9 @@ public class PriceController {
     public ResponseEntity<PriceResponse> getPrice(
             @RequestParam
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime applicationDate,
-            @RequestParam Long productId,
-            @RequestParam Long brandId
+            @NotNull LocalDateTime applicationDate,
+            @NotNull @RequestParam Long productId,
+            @NotNull @RequestParam Long brandId
     ) {
         // Convert primitives to value objects
         ProductId productValueObject = new ProductId(productId);
