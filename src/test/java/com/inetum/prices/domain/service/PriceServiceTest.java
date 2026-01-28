@@ -2,12 +2,14 @@ package com.inetum.prices.domain.service;
 
 import com.inetum.prices.domain.exception.PriceNotFoundException;
 import com.inetum.prices.domain.model.Price;
+import com.inetum.prices.domain.model.PriceRule;
+import com.inetum.prices.domain.model.ProductPriceTimeline;
 import com.inetum.prices.domain.model.valueobject.BrandId;
 import com.inetum.prices.domain.model.valueobject.Money;
 import com.inetum.prices.domain.model.valueobject.PriceListId;
 import com.inetum.prices.domain.model.valueobject.Priority;
 import com.inetum.prices.domain.model.valueobject.ProductId;
-import com.inetum.prices.domain.ports.outbound.PriceRepositoryPort;
+import com.inetum.prices.domain.ports.outbound.ProductPriceTimelineRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,8 +19,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -27,80 +29,99 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for PriceService.
+ * Unit tests for PriceService with CQRS pattern.
  * <p>
  * These tests focus on domain logic in isolation, using Mockito to mock the repository.
  * No Spring context is loaded - these are fast, pure unit tests.
+ * <p>
+ * Tests have been updated to use ProductPriceTimeline aggregate instead of individual Price entities.
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("PriceService Unit Tests")
+@DisplayName("PriceService Unit Tests (CQRS)")
 class PriceServiceTest {
 
     @Mock
-    private PriceRepositoryPort priceRepository;
+    private ProductPriceTimelineRepositoryPort timelineRepository;
 
     private PriceService priceService;
 
     @BeforeEach
     void setUp() {
-        priceService = new PriceService(priceRepository);
+        priceService = new PriceService(timelineRepository);
     }
 
     @Test
-    @DisplayName("Should return the price with highest priority when multiple prices exist")
+    @DisplayName("Should return the price with highest priority when multiple rules overlap")
     void shouldReturnHighestPriorityPrice() {
         // Given
         LocalDateTime applicationDate = LocalDateTime.of(2020, 6, 14, 16, 0);
         ProductId productId = new ProductId(35455L);
         BrandId brandId = new BrandId(1L);
 
-        Price lowPriorityPrice = createPrice(brandId, productId, 1, 0, new BigDecimal("35.50"));
-        Price highPriorityPrice = createPrice(brandId, productId, 2, 1, new BigDecimal("25.45"));
-
-        when(priceRepository.findApplicablePrices(any(), any(), any()))
-                .thenReturn(List.of(lowPriorityPrice, highPriorityPrice));
+        ProductPriceTimeline timeline = createTimelineWithMultipleRules(productId, brandId);
+        when(timelineRepository.findByProductAndBrand(any(), any()))
+                .thenReturn(Optional.of(timeline));
 
         // When
         Price result = priceService.getApplicablePrice(applicationDate, productId, brandId);
 
         // Then
-        assertThat(result).isEqualTo(highPriorityPrice);
+        assertThat(result.priceListId().value()).isEqualTo(2);
         assertThat(result.priority().value()).isEqualTo(1);
         assertThat(result.amount().amount()).isEqualByComparingTo(new BigDecimal("25.45"));
-        verify(priceRepository).findApplicablePrices(applicationDate, productId, brandId);
+        verify(timelineRepository).findByProductAndBrand(productId, brandId);
     }
 
     @Test
-    @DisplayName("Should return single price when only one exists")
+    @DisplayName("Should return single price when only one rule applies")
     void shouldReturnSinglePrice() {
         // Given
         LocalDateTime applicationDate = LocalDateTime.of(2020, 6, 14, 10, 0);
         ProductId productId = new ProductId(35455L);
         BrandId brandId = new BrandId(1L);
 
-        Price singlePrice = createPrice(brandId, productId, 1, 0, new BigDecimal("35.50"));
-
-        when(priceRepository.findApplicablePrices(any(), any(), any()))
-                .thenReturn(List.of(singlePrice));
+        ProductPriceTimeline timeline = createTimelineWithSingleRule(productId, brandId);
+        when(timelineRepository.findByProductAndBrand(any(), any()))
+                .thenReturn(Optional.of(timeline));
 
         // When
         Price result = priceService.getApplicablePrice(applicationDate, productId, brandId);
 
         // Then
-        assertThat(result).isEqualTo(singlePrice);
         assertThat(result.priceListId().value()).isEqualTo(1);
+        assertThat(result.priority().value()).isEqualTo(0);
+        assertThat(result.amount().amount()).isEqualByComparingTo(new BigDecimal("35.50"));
     }
 
     @Test
-    @DisplayName("Should throw PriceNotFoundException when no prices exist")
-    void shouldThrowExceptionWhenNoPriceFound() {
+    @DisplayName("Should throw PriceNotFoundException when timeline not found")
+    void shouldThrowExceptionWhenTimelineNotFound() {
         // Given
         LocalDateTime applicationDate = LocalDateTime.of(2020, 6, 14, 10, 0);
         ProductId productId = new ProductId(99999L);
         BrandId brandId = new BrandId(1L);
 
-        when(priceRepository.findApplicablePrices(any(), any(), any()))
-                .thenReturn(Collections.emptyList());
+        when(timelineRepository.findByProductAndBrand(any(), any()))
+                .thenReturn(Optional.empty());
+
+        // When / Then
+        assertThatThrownBy(() ->
+                priceService.getApplicablePrice(applicationDate, productId, brandId))
+                .isInstanceOf(PriceNotFoundException.class)
+                .hasMessageContaining("No applicable price found");
+    }
+
+    @Test
+    @DisplayName("Should throw PriceNotFoundException when no rules apply for date")
+    void shouldThrowExceptionWhenNoRulesApply() {
+        // Given - date before any rules apply
+        LocalDateTime applicationDate = LocalDateTime.of(2020, 6, 13, 23, 59);
+        ProductId productId = new ProductId(35455L);
+        BrandId brandId = new BrandId(1L);
+
+        ProductPriceTimeline timeline = createTimelineWithSingleRule(productId, brandId);
+        when(timelineRepository.findByProductAndBrand(any(), any()))
+                .thenReturn(Optional.of(timeline));
 
         // When / Then
         assertThatThrownBy(() ->
@@ -151,42 +172,36 @@ class PriceServiceTest {
                 .hasMessageContaining("BrandId cannot be null");
     }
 
-    @Test
-    @DisplayName("Should correctly select highest priority among three prices")
-    void shouldSelectHighestPriorityAmongMultiplePrices() {
-        // Given
-        LocalDateTime applicationDate = LocalDateTime.of(2020, 6, 15, 10, 0);
-        ProductId productId = new ProductId(35455L);
-        BrandId brandId = new BrandId(1L);
+    // Helper methods
 
-        Price priority0 = createPrice(brandId, productId, 1, 0, new BigDecimal("35.50"));
-        Price priority1 = createPrice(brandId, productId, 3, 1, new BigDecimal("30.50"));
-        Price priority2 = createPrice(brandId, productId, 4, 2, new BigDecimal("38.95"));
-
-        when(priceRepository.findApplicablePrices(any(), any(), any()))
-                .thenReturn(List.of(priority0, priority1, priority2));
-
-        // When
-        Price result = priceService.getApplicablePrice(applicationDate, productId, brandId);
-
-        // Then
-        assertThat(result).isEqualTo(priority2);
-        assertThat(result.priority().value()).isEqualTo(2);
-        assertThat(result.priceListId().value()).isEqualTo(4);
-        assertThat(result.amount().amount()).isEqualByComparingTo(new BigDecimal("38.95"));
-    }
-
-    // Helper method to create Price objects for testing
-    private Price createPrice(BrandId brandId, ProductId productId, int priceListId,
-                              int priority, BigDecimal amount) {
-        return new Price(
-                brandId,
-                productId,
-                new PriceListId(priceListId),
+    private ProductPriceTimeline createTimelineWithSingleRule(ProductId productId, BrandId brandId) {
+        PriceRule rule = new PriceRule(
+                new PriceListId(1),
                 LocalDateTime.of(2020, 6, 14, 0, 0),
                 LocalDateTime.of(2020, 12, 31, 23, 59),
-                new Priority(priority),
-                new Money(amount)
+                new Priority(0),
+                Money.of(BigDecimal.valueOf(35.50))
         );
+        return new ProductPriceTimeline(productId, brandId, Arrays.asList(rule));
+    }
+
+    private ProductPriceTimeline createTimelineWithMultipleRules(ProductId productId, BrandId brandId) {
+        PriceRule baseRule = new PriceRule(
+                new PriceListId(1),
+                LocalDateTime.of(2020, 6, 14, 0, 0),
+                LocalDateTime.of(2020, 12, 31, 23, 59),
+                new Priority(0),
+                Money.of(BigDecimal.valueOf(35.50))
+        );
+
+        PriceRule promotionRule = new PriceRule(
+                new PriceListId(2),
+                LocalDateTime.of(2020, 6, 14, 15, 0),
+                LocalDateTime.of(2020, 6, 14, 18, 30),
+                new Priority(1),
+                Money.of(BigDecimal.valueOf(25.45))
+        );
+
+        return new ProductPriceTimeline(productId, brandId, Arrays.asList(baseRule, promotionRule));
     }
 }
