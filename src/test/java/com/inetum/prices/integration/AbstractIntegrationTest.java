@@ -1,6 +1,7 @@
 package com.inetum.prices.integration;
 
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -20,6 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  *   <li>Flyway migrations run automatically against the containerized database</li>
  *   <li>Spring Boot context is fully loaded with real dependencies</li>
  *   <li>Tests run on a random port to avoid conflicts</li>
+ *   <li>Uses 'test' profile with cache disabled for accurate testing</li>
  * </ul>
  * <p>
  * <b>Usage:</b> Extend this class in your integration tests:
@@ -38,6 +40,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
         "spring.jpa.defer-datasource-initialization=false"
     }
 )
+@ActiveProfiles("test")
 @Testcontainers
 public abstract class AbstractIntegrationTest {
 

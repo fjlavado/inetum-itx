@@ -42,6 +42,7 @@ import java.util.List;
 public class PriceRulesJsonConverter implements AttributeConverter<List<PriceRule>, String> {
 
     private static final ObjectMapper MAPPER = createObjectMapper();
+    private static final TypeReference<List<PriceRule>> typeReference = new TypeReference<>() {};
 
     /**
      * Creates and configures the Jackson ObjectMapper.
@@ -54,10 +55,7 @@ public class PriceRulesJsonConverter implements AttributeConverter<List<PriceRul
         
         // Disable writing dates as timestamps (use ISO-8601 strings instead)
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        
-        // Fail on unknown properties during deserialization to catch schema issues early
-        // mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
-        
+
         return mapper;
     }
 
@@ -93,11 +91,11 @@ public class PriceRulesJsonConverter implements AttributeConverter<List<PriceRul
     @Override
     public List<PriceRule> convertToEntityAttribute(String json) {
         if (json == null || json.trim().isEmpty()) {
-            return null;
+            return List.of();
         }
 
         try {
-            return MAPPER.readValue(json, new TypeReference<List<PriceRule>>() {});
+            return MAPPER.readValue(json, typeReference);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(
                     "Failed to deserialize JSON to PriceRules: " + e.getMessage() + 

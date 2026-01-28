@@ -3,6 +3,7 @@ package com.inetum.prices.application.rest.exception;
 import com.inetum.prices.application.rest.dto.ErrorResponse;
 import com.inetum.prices.domain.exception.InvalidPriceException;
 import com.inetum.prices.domain.exception.PriceNotFoundException;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
  * Global exception handler for the REST API.
@@ -90,7 +92,8 @@ public class GlobalExceptionHandler {
         String message = String.format(
                 "Invalid value for parameter '%s': expected type %s",
                 ex.getName(),
-                ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown"
+                Optional.of(ex).map(MethodArgumentTypeMismatchException::getRequiredType)
+                        .map(Class::getSimpleName).orElse("unknown")
         );
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
