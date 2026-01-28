@@ -31,11 +31,6 @@ CREATE INDEX idx_product_price_timelines_rules_gin
 CREATE INDEX idx_product_price_timelines_brand 
     ON product_price_timelines (brand_id);
 
--- Partial index for recently updated timelines (performance optimization)
-CREATE INDEX idx_product_price_timelines_recent 
-    ON product_price_timelines (updated_at DESC)
-    WHERE updated_at > CURRENT_TIMESTAMP - INTERVAL '7 days';
-
 -- Documentation comments
 COMMENT ON TABLE product_price_timelines IS 
     'CQRS aggregate: All pricing rules for a product stored as JSONB for O(1) lookup. Replaces row-per-price pattern.';
