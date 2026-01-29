@@ -1,0 +1,58 @@
+# Compiled class files
+/target/
+
+# IDE configuration files
+/.idea/
+
+# Log files
+/*.log
+*.log.*
+
+# Temporary files
+*~
+*#
+.*.swp
+.*.swo
+
+# Build output (including Eclipse and Maven)
+/.settings/
+/.classpath
+/.project
+/bin/
+/classes/
+
+# IDE generated metadata
+/*.iml
+*.ipr
+*.iws
+
+# Gradle metadata
+/build/
+/gradle.properties
+/gradlew
+/gradlew.bat
+
+# Node.js packages and files
+/node_modules/
+package-lock.json
+npm-debug.log
+
+# Maven metadata
+/*.mvn
+pom.xml~
+
+# IntelliJ IDEA .gitignore file
+/.idea/.gitignore
+
+# Spring Boot fat JARs
+*.jar
+*.war
+*.ear
+/target/classes/
+/target/generated-sources/
+/target/generated-test-sources/
+/target/maven-archiver/
+/target/surefire-reports/
+/target/test-classes/
+/target/prices-api-0.0.1-SNAPSHOT.jar
+/target/prices-api-0.0.1-SNAPSHOT.jar.original
