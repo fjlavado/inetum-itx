@@ -6,56 +6,70 @@ import com.inetum.prices.domain.model.valueobject.ProductId;
 import com.inetum.prices.domain.ports.outbound.ProductPriceTimelineRepositoryPort;
 import com.inetum.prices.infrastructure.persistence.mapper.ProductPriceTimelineEntityMapper;
 import com.inetum.prices.infrastructure.persistence.repository.SpringDataProductPriceTimelineRepository;
-import lombok.AllArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
 /**
- * PostgreSQL implementation of ProductPriceTimelineRepositoryPort using JSONB storage.
+ * PostgreSQL implementation of ProductPriceTimelineRepositoryPort using JSONB
+ * storage.
  * <p>
  * This adapter bridges the domain layer (pure Java, no framework dependencies)
  * with the infrastructure layer (Spring Data JPA, PostgreSQL).
  * <p>
  * <b>Performance Characteristics (with Caffeine caching):</b>
  * <ul>
- *   <li>Cache miss (first request): ~1-2ms (database query + JSONB deserialization)</li>
- *   <li>Cache hit (subsequent requests): < 0.1ms (in-memory lookup)</li>
- *   <li>Expected cache hit rate: 95%+ in production</li>
- *   <li>Cache TTL: 5 minutes (configurable in CacheConfiguration)</li>
+ * <li>Cache miss (first request): ~1-2ms (database query + JSONB
+ * deserialization)</li>
+ * <li>Cache hit (subsequent requests): < 0.1ms (in-memory lookup)</li>
+ * <li>Expected cache hit rate: 95%+ in production</li>
+ * <li>Cache TTL: 5 minutes (configurable in CacheConfiguration)</li>
  * </ul>
  * <p>
  * <b>Caching Strategy:</b>
  * Uses Spring's @Cacheable annotation with Caffeine backend. Cache key is
- * "{productId}_{brandId}" which provides optimal granularity for e-commerce pricing.
+ * "{productId}_{brandId}" which provides optimal granularity for e-commerce
+ * pricing.
+ * <p>
+ * <b>Cache Invalidation:</b>
+ * The {@link #save(ProductPriceTimeline)} method uses {@link CacheEvict} to
+ * invalidate the corresponding entry when a timeline is updated.
  * <p>
  * <b>Error Handling:</b>
  * JSON deserialization failures are propagated as IllegalStateException with
  * detailed error messages for debugging.
  */
-@AllArgsConstructor
 public class PostgreSQLProductPriceTimelineAdapter implements ProductPriceTimelineRepositoryPort {
 
     private final SpringDataProductPriceTimelineRepository repository;
     private final ProductPriceTimelineEntityMapper mapper;
+
+    public PostgreSQLProductPriceTimelineAdapter(
+            SpringDataProductPriceTimelineRepository repository,
+            ProductPriceTimelineEntityMapper mapper) {
+        this.repository = repository;
+        this.mapper = mapper;
+    }
 
     /**
      * {@inheritDoc}
      * <p>
      * <b>Implementation Details:</b>
      * <ol>
-     *   <li>Check Caffeine cache for key "{productId}_{brandId}"</li>
-     *   <li>On cache miss: Query database using composite primary key</li>
-     *   <li>Deserialize JSONB column to List<PriceRule> (via converter)</li>
-     *   <li>Map entity to domain model (via MapStruct)</li>
-     *   <li>Store result in cache for 5 minutes</li>
+     * <li>Check Caffeine cache for key "{productId}_{brandId}"</li>
+     * <li>On cache miss: Query database using composite primary key</li>
+     * <li>Deserialize JSONB column to List<PriceRule> (via converter)</li>
+     * <li>Map entity to domain model (via MapStruct)</li>
+     * <li>Store result in cache for 5 minutes</li>
      * </ol>
      * <p>
      * <b>Cache Key Format:</b>
-     * The SpEL expression creates a cache key like "35455_1" for product 35455 and brand 1.
+     * The SpEL expression creates a cache key like "35455_1" for product 35455 and
+     * brand 1.
      * This provides fine-grained caching at the product+brand level.
      *
-     * @throws IllegalArgumentException if productId or brandId is null
      * @throws IllegalStateException if JSON deserialization fails
      */
     @Override
@@ -64,5 +78,29 @@ public class PostgreSQLProductPriceTimelineAdapter implements ProductPriceTimeli
         return repository
                 .findByProductIdAndBrandId(productId.value(), brandId.value())
                 .map(mapper::toDomain);
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * <b>Cache Invalidation:</b>
+     * Evicts the entry from "priceTimelines" cache using the same key format
+     * as {@link #findByProductAndBrand(ProductId, BrandId)}.
+     */
+    @Override
+    @Transactional
+    @CacheEvict(value = "priceTimelines", key = "#timeline.getProductId().value() + '_' + #timeline.getBrandId().value()")
+    public void save(ProductPriceTimeline timeline) {
+        repository.findByProductIdAndBrandId(timeline.getProductId().value(), timeline.getBrandId().value())
+                .ifPresentOrElse(
+                        entity -> {
+                            // Update existing entity
+                            entity.setPriceRules(timeline.getRules());
+                            repository.save(entity);
+                        },
+                        () -> {
+                            // Create new entity
+                            repository.save(mapper.toEntity(timeline));
+                        });
     }
 }

@@ -20,9 +20,9 @@ import java.util.Optional;
  * <p>
  * <b>Implementation Notes:</b>
  * <ul>
- *   <li>Database query: O(1) primary key lookup</li>
- *   <li>JSONB deserialization happens transparently via JPA converter</li>
- *   <li>Returns empty Optional if no timeline exists for product+brand</li>
+ * <li>Database query: O(1) primary key lookup</li>
+ * <li>JSONB deserialization happens transparently via JPA converter</li>
+ * <li>Returns empty Optional if no timeline exists for product+brand</li>
  * </ul>
  */
 public interface ProductPriceTimelineRepositoryPort {
@@ -37,7 +37,16 @@ public interface ProductPriceTimelineRepositoryPort {
      * @param productId the product identifier
      * @param brandId   the brand identifier
      * @return Optional containing the timeline if found, empty otherwise
-     * @throws IllegalArgumentException if productId or brandId is null
      */
     Optional<ProductPriceTimeline> findByProductAndBrand(ProductId productId, BrandId brandId);
+
+    /**
+     * Saves or updates a pricing timeline.
+     * <p>
+     * This method is responsible for persisting the aggregate and ensuring
+     * any associated caches are invalidated or updated.
+     *
+     * @param timeline the timeline to save
+     */
+    void save(ProductPriceTimeline timeline);
 }

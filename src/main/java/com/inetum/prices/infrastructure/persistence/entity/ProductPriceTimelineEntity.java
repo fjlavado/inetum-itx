@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,20 +20,23 @@ import java.util.List;
  * <p>
  * <b>Design Decisions:</b>
  * <ul>
- *   <li>Composite primary key: (product_id, brand_id)</li>
- *   <li>JSONB column for price_rules enables flexible storage and fast queries</li>
- *   <li>Optimistic locking via @Version for concurrent update protection</li>
- *   <li>Timestamps for audit trail</li>
+ * <li>Composite primary key: (product_id, brand_id)</li>
+ * <li>JSONB column for price_rules enables flexible storage and fast
+ * queries</li>
+ * <li>Optimistic locking via @Version for concurrent update protection</li>
+ * <li>Timestamps for audit trail</li>
  * </ul>
  * <p>
  * <b>Performance Characteristics:</b>
  * <ul>
- *   <li>Primary key lookup: O(1) via B-tree index</li>
- *   <li>JSONB deserialization: O(n) where n = number of rules (typically < 10)</li>
- *   <li>GIN index on JSONB column enables advanced JSON queries if needed</li>
+ * <li>Primary key lookup: O(1) via B-tree index</li>
+ * <li>JSONB deserialization: O(n) where n = number of rules (typically <
+ * 10)</li>
+ * <li>GIN index on JSONB column enables advanced JSON queries if needed</li>
  * </ul>
  * <p>
  * <b>Table: product_price_timelines</b>
+ * 
  * <pre>
  * CREATE TABLE product_price_timelines (
  *     product_id BIGINT NOT NULL,
@@ -72,6 +77,7 @@ public class ProductPriceTimelineEntity {
      * The JSON structure allows PostgreSQL to efficiently store and query
      * nested data while maintaining type safety in the application layer.
      */
+    @JdbcTypeCode(SqlTypes.JSON)
     @Convert(converter = PriceRulesJsonConverter.class)
     @Column(name = "price_rules", columnDefinition = "jsonb", nullable = false)
     private List<PriceRule> priceRules;
