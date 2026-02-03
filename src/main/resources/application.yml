@@ -1,6 +1,9 @@
 spring:
   application:
     name: prices-api
+  threads:
+    virtual:
+      enabled: true
 
   datasource:
     url: jdbc:postgresql://localhost:5432/pricesdb

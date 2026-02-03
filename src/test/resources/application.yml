@@ -1,6 +1,9 @@
 spring:
   application:
     name: prices-api-test
+  threads:
+    virtual:
+      enabled: true
 
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
