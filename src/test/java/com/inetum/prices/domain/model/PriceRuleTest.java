@@ -1,5 +1,7 @@
 package com.inetum.prices.domain.model;
 
+import com.inetum.prices.domain.exception.DomainValidationException;
+
 import com.inetum.prices.domain.model.valueobject.Money;
 import com.inetum.prices.domain.model.valueobject.PriceListId;
 import com.inetum.prices.domain.model.valueobject.Priority;
@@ -44,9 +46,8 @@ class PriceRuleTest {
         Money amount = Money.of(BigDecimal.valueOf(35.50));
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
-                new PriceRule(null, START_DATE, END_DATE, priority, amount)
-        );
+        assertThrows(DomainValidationException.class,
+                () -> new PriceRule(null, START_DATE, END_DATE, priority, amount));
     }
 
     @Test
@@ -57,9 +58,8 @@ class PriceRuleTest {
         Money amount = Money.of(BigDecimal.valueOf(35.50));
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
-                new PriceRule(priceListId, null, END_DATE, priority, amount)
-        );
+        assertThrows(DomainValidationException.class,
+                () -> new PriceRule(priceListId, null, END_DATE, priority, amount));
     }
 
     @Test
@@ -70,9 +70,8 @@ class PriceRuleTest {
         Money amount = Money.of(BigDecimal.valueOf(35.50));
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
-                new PriceRule(priceListId, START_DATE, null, priority, amount)
-        );
+        assertThrows(DomainValidationException.class,
+                () -> new PriceRule(priceListId, START_DATE, null, priority, amount));
     }
 
     @Test
@@ -82,9 +81,8 @@ class PriceRuleTest {
         Money amount = Money.of(BigDecimal.valueOf(35.50));
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
-                new PriceRule(priceListId, START_DATE, END_DATE, null, amount)
-        );
+        assertThrows(DomainValidationException.class,
+                () -> new PriceRule(priceListId, START_DATE, END_DATE, null, amount));
     }
 
     @Test
@@ -94,9 +92,8 @@ class PriceRuleTest {
         Priority priority = new Priority(0);
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
-                new PriceRule(priceListId, START_DATE, END_DATE, priority, null)
-        );
+        assertThrows(DomainValidationException.class,
+                () -> new PriceRule(priceListId, START_DATE, END_DATE, priority, null));
     }
 
     @Test
@@ -109,9 +106,8 @@ class PriceRuleTest {
         LocalDateTime invalidEndDate = LocalDateTime.of(2020, 6, 14, 0, 0);
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
-                new PriceRule(priceListId, invalidStartDate, invalidEndDate, priority, amount)
-        );
+        assertThrows(DomainValidationException.class,
+                () -> new PriceRule(priceListId, invalidStartDate, invalidEndDate, priority, amount));
     }
 
     @Test
@@ -123,9 +119,8 @@ class PriceRuleTest {
         LocalDateTime sameDate = LocalDateTime.of(2020, 6, 14, 10, 0);
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
-                new PriceRule(priceListId, sameDate, sameDate, priority, amount)
-        );
+        assertThrows(DomainValidationException.class,
+                () -> new PriceRule(priceListId, sameDate, sameDate, priority, amount));
     }
 
     @Test
@@ -199,9 +194,7 @@ class PriceRuleTest {
         PriceRule rule = createValidPriceRule();
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
-                rule.isApplicableAt(null)
-        );
+        assertThrows(DomainValidationException.class, () -> rule.isApplicableAt(null));
     }
 
     @Test
@@ -232,9 +225,7 @@ class PriceRuleTest {
         PriceRule rule = createValidPriceRule();
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
-                rule.hasHigherPriorityThan(null)
-        );
+        assertThrows(DomainValidationException.class, () -> rule.hasHigherPriorityThan(null));
     }
 
     @Test
@@ -243,9 +234,7 @@ class PriceRuleTest {
         PriceRule rule = createValidPriceRule();
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
-                rule.hasLowerPriorityThan(null)
-        );
+        assertThrows(DomainValidationException.class, () -> rule.hasLowerPriorityThan(null));
     }
 
     // Helper methods
@@ -256,8 +245,7 @@ class PriceRuleTest {
                 START_DATE,
                 END_DATE,
                 new Priority(0),
-                Money.of(BigDecimal.valueOf(35.50))
-        );
+                Money.of(BigDecimal.valueOf(35.50)));
     }
 
     private PriceRule createPriceRuleWithPriority(int priorityValue) {
@@ -266,7 +254,6 @@ class PriceRuleTest {
                 START_DATE,
                 END_DATE,
                 new Priority(priorityValue),
-                Money.of(BigDecimal.valueOf(35.50))
-        );
+                Money.of(BigDecimal.valueOf(35.50)));
     }
 }
