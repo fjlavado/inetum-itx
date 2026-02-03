@@ -1,12 +1,16 @@
 package com.inetum.prices.domain.model.valueobject;
 
+import com.inetum.prices.domain.exception.DomainValidationException;
+
 /**
  * Value Object representing a Product identifier.
  * <p>
  * Wraps a Long value to provide type safety and prevent primitive obsession.
- * Ensures that product IDs cannot be confused with brand IDs or other numeric values.
+ * Ensures that product IDs cannot be confused with brand IDs or other numeric
+ * values.
  * <p>
- * This record is immutable and validates the product ID in its compact constructor.
+ * This record is immutable and validates the product ID in its compact
+ * constructor.
  *
  * @param value the product identifier (must be positive)
  */
@@ -19,10 +23,10 @@ public record ProductId(Long value) implements SingleValueObject<Long> {
      */
     public ProductId {
         if (value == null) {
-            throw new IllegalArgumentException("ProductId cannot be null");
+            throw new DomainValidationException("ProductId cannot be null");
         }
         if (value <= 0) {
-            throw new IllegalArgumentException("ProductId must be positive, got: " + value);
+            throw new DomainValidationException("ProductId must be positive");
         }
     }
 

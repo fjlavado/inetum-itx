@@ -1,12 +1,17 @@
 package com.inetum.prices.domain.model.valueobject;
 
+import com.inetum.prices.domain.exception.DomainValidationException;
+
 /**
  * Value Object representing a Price List identifier.
  * <p>
- * Wraps an Integer value to provide type safety and prevent primitive obsession.
- * Price lists are used to categorize different pricing strategies (base, promotional, premium, etc.).
+ * Wraps an Integer value to provide type safety and prevent primitive
+ * obsession.
+ * Price lists are used to categorize different pricing strategies (base,
+ * promotional, premium, etc.).
  * <p>
- * This record is immutable and validates the price list ID in its compact constructor.
+ * This record is immutable and validates the price list ID in its compact
+ * constructor.
  *
  * @param value the price list identifier (must be positive)
  */
@@ -19,10 +24,10 @@ public record PriceListId(Integer value) implements SingleValueObject<Integer> {
      */
     public PriceListId {
         if (value == null) {
-            throw new IllegalArgumentException("PriceListId cannot be null");
+            throw new DomainValidationException("PriceListId cannot be null");
         }
         if (value <= 0) {
-            throw new IllegalArgumentException("PriceListId must be positive, got: " + value);
+            throw new DomainValidationException("PriceListId must be positive");
         }
     }
 

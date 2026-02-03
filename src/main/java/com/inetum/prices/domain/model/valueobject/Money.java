@@ -1,5 +1,7 @@
 package com.inetum.prices.domain.model.valueobject;
 
+import com.inetum.prices.domain.exception.DomainValidationException;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -11,10 +13,10 @@ import java.math.RoundingMode;
  * <p>
  * <b>Design Decisions:</b>
  * <ul>
- *   <li>Uses BigDecimal to avoid floating-point precision issues</li>
- *   <li>Enforces 2 decimal places (standard for EUR currency)</li>
- *   <li>Prevents negative amounts</li>
- *   <li>Immutable by design</li>
+ * <li>Uses BigDecimal to avoid floating-point precision issues</li>
+ * <li>Enforces 2 decimal places (standard for EUR currency)</li>
+ * <li>Prevents negative amounts</li>
+ * <li>Immutable by design</li>
  * </ul>
  *
  * @param amount the monetary amount (must be non-negative, 2 decimal places)
@@ -28,10 +30,10 @@ public record Money(BigDecimal amount) implements SingleValueObject<BigDecimal>,
      */
     public Money {
         if (amount == null) {
-            throw new IllegalArgumentException("Money amount cannot be null");
+            throw new DomainValidationException("Money amount cannot be null");
         }
         if (amount.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("Money amount cannot be negative, got: " + amount);
+            throw new DomainValidationException("Money amount cannot be negative");
         }
         // Normalize to 2 decimal places for consistency
         amount = amount.setScale(2, RoundingMode.HALF_UP);

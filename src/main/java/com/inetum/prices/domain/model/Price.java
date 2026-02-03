@@ -5,6 +5,7 @@ import com.inetum.prices.domain.model.valueobject.Money;
 import com.inetum.prices.domain.model.valueobject.PriceListId;
 import com.inetum.prices.domain.model.valueobject.Priority;
 import com.inetum.prices.domain.model.valueobject.ProductId;
+import com.inetum.prices.domain.exception.DomainValidationException;
 
 import java.time.LocalDateTime;
 
@@ -16,25 +17,29 @@ import java.time.LocalDateTime;
  * <p>
  * <b>Aggregate Root Responsibilities:</b>
  * <ul>
- *   <li>Maintains pricing invariants (valid date ranges, non-negative amounts)</li>
- *   <li>Encapsulates priority-based conflict resolution logic</li>
- *   <li>Determines temporal applicability of prices</li>
- *   <li>Ensures consistency across all price attributes</li>
+ * <li>Maintains pricing invariants (valid date ranges, non-negative
+ * amounts)</li>
+ * <li>Encapsulates priority-based conflict resolution logic</li>
+ * <li>Determines temporal applicability of prices</li>
+ * <li>Ensures consistency across all price attributes</li>
  * </ul>
  * <p>
  * <b>Business Rules:</b>
  * <ul>
- *   <li>A price is applicable if the query date falls within [startDate, endDate]</li>
- *   <li>When multiple prices overlap, the one with highest priority wins</li>
- *   <li>Start date must be before end date</li>
- *   <li>All value objects must be valid (enforced by their own constructors)</li>
+ * <li>A price is applicable if the query date falls within [startDate,
+ * endDate]</li>
+ * <li>When multiple prices overlap, the one with highest priority wins</li>
+ * <li>Start date must be before end date</li>
+ * <li>All value objects must be valid (enforced by their own constructors)</li>
  * </ul>
  * <p>
- * This record is immutable, thread-safe, and contains no infrastructure dependencies.
+ * This record is immutable, thread-safe, and contains no infrastructure
+ * dependencies.
  *
  * @param brandId     the brand this price applies to
  * @param productId   the product this price applies to
- * @param priceListId the price list identifier (categorizes the pricing strategy)
+ * @param priceListId the price list identifier (categorizes the pricing
+ *                    strategy)
  * @param startDate   the date and time when this price becomes effective
  * @param endDate     the date and time when this price expires
  * @param priority    conflict resolution priority (higher wins)
@@ -47,8 +52,7 @@ public record Price(
         LocalDateTime startDate,
         LocalDateTime endDate,
         Priority priority,
-        Money amount
-) {
+        Money amount) {
 
     /**
      * Compact constructor with invariant validation.
@@ -57,30 +61,29 @@ public record Price(
      */
     public Price {
         if (brandId == null) {
-            throw new IllegalArgumentException("BrandId cannot be null");
+            throw new DomainValidationException("BrandId cannot be null");
         }
         if (productId == null) {
-            throw new IllegalArgumentException("ProductId cannot be null");
+            throw new DomainValidationException("ProductId cannot be null");
         }
         if (priceListId == null) {
-            throw new IllegalArgumentException("PriceListId cannot be null");
+            throw new DomainValidationException("PriceListId cannot be null");
         }
         if (startDate == null) {
-            throw new IllegalArgumentException("Start date cannot be null");
+            throw new DomainValidationException("Start date cannot be null");
         }
         if (endDate == null) {
-            throw new IllegalArgumentException("End date cannot be null");
+            throw new DomainValidationException("End date cannot be null");
         }
         if (priority == null) {
-            throw new IllegalArgumentException("Priority cannot be null");
+            throw new DomainValidationException("Priority cannot be null");
         }
         if (amount == null) {
-            throw new IllegalArgumentException("Amount cannot be null");
+            throw new DomainValidationException("Amount cannot be null");
         }
         if (!startDate.isBefore(endDate)) {
-            throw new IllegalArgumentException(
-                    "Start date must be before end date. Got start: " + startDate + ", end: " + endDate
-            );
+            throw new DomainValidationException(
+                    "Start date must be before end date. Got start: " + startDate + ", end: " + endDate);
         }
     }
 
@@ -96,7 +99,7 @@ public record Price(
      */
     public boolean isApplicableAt(LocalDateTime applicationDate) {
         if (applicationDate == null) {
-            throw new IllegalArgumentException("Application date cannot be null");
+            throw new DomainValidationException("Application date cannot be null");
         }
 
         return (applicationDate.isEqual(startDate) || applicationDate.isAfter(startDate)) &&
@@ -115,7 +118,7 @@ public record Price(
      */
     public boolean hasHigherPriorityThan(Price other) {
         if (other == null) {
-            throw new IllegalArgumentException("Cannot compare priority with null Price");
+            throw new DomainValidationException("Cannot compare priority with null Price");
         }
         return this.priority.isHigherThan(other.priority);
     }
@@ -129,7 +132,7 @@ public record Price(
      */
     public boolean hasLowerPriorityThan(Price other) {
         if (other == null) {
-            throw new IllegalArgumentException("Cannot compare priority with null Price");
+            throw new DomainValidationException("Cannot compare priority with null Price");
         }
         return this.priority.isLowerThan(other.priority);
     }
@@ -143,5 +146,27 @@ public record Price(
      */
     public boolean matchesBrandAndProduct(BrandId brandId, ProductId productId) {
         return this.brandId.equals(brandId) && this.productId.equals(productId);
+    }
+
+    /**
+     * Creates a Price aggregate from a PriceRule and context identifiers.
+     * <p>
+     * This factory method encapsulates the logic of promoting a rule from
+     * a timeline into a full Price entity.
+     *
+     * @param rule      the pricing rule
+     * @param productId the product identifier
+     * @param brandId   the brand identifier
+     * @return a new Price instance
+     */
+    public static Price fromRule(PriceRule rule, ProductId productId, BrandId brandId) {
+        return new Price(
+                brandId,
+                productId,
+                rule.priceListId(),
+                rule.startDate(),
+                rule.endDate(),
+                rule.priority(),
+                rule.amount());
     }
 }

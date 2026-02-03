@@ -3,11 +3,13 @@ package com.inetum.prices.domain.model;
 import com.inetum.prices.domain.model.valueobject.Money;
 import com.inetum.prices.domain.model.valueobject.PriceListId;
 import com.inetum.prices.domain.model.valueobject.Priority;
+import com.inetum.prices.domain.exception.DomainValidationException;
 
 import java.time.LocalDateTime;
 
 /**
- * Value Object representing a single pricing rule within a ProductPriceTimeline.
+ * Value Object representing a single pricing rule within a
+ * ProductPriceTimeline.
  * <p>
  * In the CQRS architecture, this represents one pricing rule that was formerly
  * stored as an entire row in the prices table. Now multiple PriceRules are
@@ -15,18 +17,18 @@ import java.time.LocalDateTime;
  * <p>
  * <b>Design Characteristics:</b>
  * <ul>
- *   <li>Immutable Value Object (Java Record)</li>
- *   <li>No infrastructure dependencies</li>
- *   <li>Serializable to JSON for JSONB storage</li>
- *   <li>Contains validation logic in compact constructor</li>
+ * <li>Immutable Value Object (Java Record)</li>
+ * <li>No infrastructure dependencies</li>
+ * <li>Serializable to JSON for JSONB storage</li>
+ * <li>Contains validation logic in compact constructor</li>
  * </ul>
  * <p>
  * <b>Business Rules:</b>
  * <ul>
- *   <li>Start date must be before end date</li>
- *   <li>All fields are mandatory (no nulls)</li>
- *   <li>Priority determines conflict resolution (higher wins)</li>
- *   <li>Temporal applicability checked via isApplicableAt()</li>
+ * <li>Start date must be before end date</li>
+ * <li>All fields are mandatory (no nulls)</li>
+ * <li>Priority determines conflict resolution (higher wins)</li>
+ * <li>Temporal applicability checked via isApplicableAt()</li>
  * </ul>
  *
  * @param priceListId the price list identifier
@@ -40,8 +42,7 @@ public record PriceRule(
         LocalDateTime startDate,
         LocalDateTime endDate,
         Priority priority,
-        Money amount
-) {
+        Money amount) {
 
     /**
      * Compact constructor with invariant validation.
@@ -50,24 +51,23 @@ public record PriceRule(
      */
     public PriceRule {
         if (priceListId == null) {
-            throw new IllegalArgumentException("PriceListId cannot be null");
+            throw new DomainValidationException("PriceListId cannot be null");
         }
         if (startDate == null) {
-            throw new IllegalArgumentException("Start date cannot be null");
+            throw new DomainValidationException("Start date cannot be null");
         }
         if (endDate == null) {
-            throw new IllegalArgumentException("End date cannot be null");
+            throw new DomainValidationException("End date cannot be null");
         }
         if (priority == null) {
-            throw new IllegalArgumentException("Priority cannot be null");
+            throw new DomainValidationException("Priority cannot be null");
         }
         if (amount == null) {
-            throw new IllegalArgumentException("Amount cannot be null");
+            throw new DomainValidationException("Amount cannot be null");
         }
         if (!startDate.isBefore(endDate)) {
-            throw new IllegalArgumentException(
-                    "Start date must be before end date. Got start: " + startDate + ", end: " + endDate
-            );
+            throw new DomainValidationException(
+                    "Start date must be before end date. Got start: " + startDate + ", end: " + endDate);
         }
     }
 
@@ -83,7 +83,7 @@ public record PriceRule(
      */
     public boolean isApplicableAt(LocalDateTime applicationDate) {
         if (applicationDate == null) {
-            throw new IllegalArgumentException("Application date cannot be null");
+            throw new DomainValidationException("Application date cannot be null");
         }
 
         return (applicationDate.isEqual(startDate) || applicationDate.isAfter(startDate)) &&
@@ -101,7 +101,7 @@ public record PriceRule(
      */
     public boolean hasHigherPriorityThan(PriceRule other) {
         if (other == null) {
-            throw new IllegalArgumentException("Cannot compare priority with null PriceRule");
+            throw new DomainValidationException("Cannot compare priority with null PriceRule");
         }
         return this.priority.isHigherThan(other.priority);
     }
@@ -115,7 +115,7 @@ public record PriceRule(
      */
     public boolean hasLowerPriorityThan(PriceRule other) {
         if (other == null) {
-            throw new IllegalArgumentException("Cannot compare priority with null PriceRule");
+            throw new DomainValidationException("Cannot compare priority with null PriceRule");
         }
         return this.priority.isLowerThan(other.priority);
     }

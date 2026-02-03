@@ -1,28 +1,24 @@
 package com.inetum.prices.domain.model.valueobject;
 
+import com.inetum.prices.domain.exception.DomainValidationException;
+
 /**
  * Value Object representing a Brand identifier.
  * <p>
  * Wraps a Long value to provide type safety and prevent primitive obsession.
  * For example, brand 1 represents ZARA in the e-commerce domain.
  * <p>
- * This record is immutable and validates the brand ID in its compact constructor.
- *
- * @param value the brand identifier (must be positive)
+ * This record is immutable and validates the brand ID in its compact
+ * constructor.
+ * Value object for Brand ID.
  */
 public record BrandId(Long value) implements SingleValueObject<Long> {
-
-    /**
-     * Compact constructor with validation.
-     *
-     * @throws IllegalArgumentException if value is null or non-positive
-     */
     public BrandId {
         if (value == null) {
-            throw new IllegalArgumentException("BrandId cannot be null");
+            throw new DomainValidationException("BrandId cannot be null");
         }
         if (value <= 0) {
-            throw new IllegalArgumentException("BrandId must be positive, got: " + value);
+            throw new DomainValidationException("BrandId must be positive");
         }
     }
 

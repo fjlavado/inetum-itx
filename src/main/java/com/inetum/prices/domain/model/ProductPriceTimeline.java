@@ -2,6 +2,7 @@ package com.inetum.prices.domain.model;
 
 import com.inetum.prices.domain.model.valueobject.BrandId;
 import com.inetum.prices.domain.model.valueobject.ProductId;
+import com.inetum.prices.domain.exception.DomainValidationException;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -19,11 +20,11 @@ import java.util.Optional;
  * <p>
  * <b>CQRS Pattern Benefits:</b>
  * <ul>
- *   <li>O(1) database lookup by product+brand (primary key)</li>
- *   <li>In-memory filtering replaces SQL BETWEEN queries</li>
- *   <li>Easy to cache (one key per product)</li>
- *   <li>Reduced database round trips</li>
- *   <li>JSONB enables flexible schema evolution</li>
+ * <li>O(1) database lookup by product+brand (primary key)</li>
+ * <li>In-memory filtering replaces SQL BETWEEN queries</li>
+ * <li>Easy to cache (one key per product)</li>
+ * <li>Reduced database round trips</li>
+ * <li>JSONB enables flexible schema evolution</li>
  * </ul>
  * <p>
  * <b>Business Logic:</b>
@@ -33,9 +34,9 @@ import java.util.Optional;
  * <p>
  * <b>Invariants:</b>
  * <ul>
- *   <li>Must have at least one pricing rule</li>
- *   <li>All rules must be valid (enforced by PriceRule constructor)</li>
- *   <li>ProductId and BrandId are immutable</li>
+ * <li>Must have at least one pricing rule</li>
+ * <li>All rules must be valid (enforced by PriceRule constructor)</li>
+ * <li>ProductId and BrandId are immutable</li>
  * </ul>
  */
 public class ProductPriceTimeline {
@@ -54,16 +55,16 @@ public class ProductPriceTimeline {
      */
     public ProductPriceTimeline(ProductId productId, BrandId brandId, List<PriceRule> rules) {
         if (productId == null) {
-            throw new IllegalArgumentException("ProductId cannot be null");
+            throw new DomainValidationException("ProductId cannot be null");
         }
         if (brandId == null) {
-            throw new IllegalArgumentException("BrandId cannot be null");
+            throw new DomainValidationException("BrandId cannot be null");
         }
         if (rules == null) {
-            throw new IllegalArgumentException("Rules cannot be null");
+            throw new DomainValidationException("Rules cannot be null");
         }
         if (rules.isEmpty()) {
-            throw new IllegalArgumentException("Rules cannot be empty - must have at least one pricing rule");
+            throw new DomainValidationException("Rules cannot be empty - must have at least one pricing rule");
         }
 
         this.productId = productId;
@@ -77,9 +78,10 @@ public class ProductPriceTimeline {
      * <p>
      * <b>Algorithm:</b>
      * <ol>
-     *   <li>Filter rules that are applicable at the given date (temporal validity)</li>
-     *   <li>Among applicable rules, select the one with highest priority</li>
-     *   <li>Return empty if no rules apply</li>
+     * <li>Filter rules that are applicable at the given date (temporal
+     * validity)</li>
+     * <li>Among applicable rules, select the one with highest priority</li>
+     * <li>Return empty if no rules apply</li>
      * </ol>
      * <p>
      * This is the key method that replaces SQL-based filtering with in-memory
@@ -91,7 +93,7 @@ public class ProductPriceTimeline {
      */
     public Optional<PriceRule> getEffectivePrice(LocalDateTime applicationDate) {
         if (applicationDate == null) {
-            throw new IllegalArgumentException("Application date cannot be null");
+            throw new DomainValidationException("Application date cannot be null");
         }
 
         return rules.stream()

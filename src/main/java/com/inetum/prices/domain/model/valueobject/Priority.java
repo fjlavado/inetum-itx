@@ -1,12 +1,17 @@
 package com.inetum.prices.domain.model.valueobject;
 
+import com.inetum.prices.domain.exception.DomainValidationException;
+
 /**
  * Value Object representing the priority of a price entry.
  * <p>
- * Priority determines which price should be applied when multiple price lists overlap
- * for the same product, brand, and time period. Higher values indicate higher priority.
+ * Priority determines which price should be applied when multiple price lists
+ * overlap
+ * for the same product, brand, and time period. Higher values indicate higher
+ * priority.
  * <p>
- * <b>Business Rule:</b> When multiple prices are applicable, the one with the highest
+ * <b>Business Rule:</b> When multiple prices are applicable, the one with the
+ * highest
  * priority value wins.
  * <p>
  * This record is immutable and implements Comparable for natural ordering.
@@ -22,10 +27,10 @@ public record Priority(Integer value) implements SingleValueObject<Integer>, Com
      */
     public Priority {
         if (value == null) {
-            throw new IllegalArgumentException("Priority cannot be null");
+            throw new DomainValidationException("Priority cannot be null");
         }
         if (value < 0) {
-            throw new IllegalArgumentException("Priority must be non-negative, got: " + value);
+            throw new DomainValidationException("Priority must be non-negative");
         }
     }
 

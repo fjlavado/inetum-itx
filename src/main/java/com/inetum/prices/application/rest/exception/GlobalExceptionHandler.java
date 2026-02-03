@@ -1,121 +1,74 @@
 package com.inetum.prices.application.rest.exception;
 
-import com.inetum.prices.application.rest.dto.ErrorResponse;
+import com.inetum.prices.domain.exception.DomainValidationException;
 import com.inetum.prices.domain.exception.InvalidPriceException;
 import com.inetum.prices.domain.exception.PriceNotFoundException;
-import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.time.LocalDateTime;
+import java.net.URI;
 import java.util.Optional;
 
 /**
- * Global exception handler for the REST API.
- * <p>
- * This class uses Spring's @RestControllerAdvice to catch exceptions thrown by
- * controllers and convert them into appropriate HTTP error responses.
- * <p>
- * <b>Exception Mapping Strategy:</b>
- * <ul>
- *   <li>PriceNotFoundException → 404 NOT FOUND</li>
- *   <li>InvalidPriceException → 400 BAD REQUEST</li>
- *   <li>IllegalArgumentException → 400 BAD REQUEST</li>
- *   <li>MethodArgumentTypeMismatchException → 400 BAD REQUEST</li>
- *   <li>Generic Exception → 500 INTERNAL SERVER ERROR</li>
- * </ul>
+ * Global exception handler for the REST API using ProblemDetail (RFC 7807).
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    /**
-     * Handles PriceNotFoundException - when no applicable price is found.
-     *
-     * @param ex the exception
-     * @return 404 NOT FOUND response
-     */
     @ExceptionHandler(PriceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handlePriceNotFound(PriceNotFoundException ex) {
-        ErrorResponse error = new ErrorResponse(
-                HttpStatus.NOT_FOUND.value(),
-                ex.getMessage(),
-                LocalDateTime.now()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    public ProblemDetail handlePriceNotFound(PriceNotFoundException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problemDetail.setTitle("Price Not Found");
+        problemDetail.setType(URI.create("https://api.prices.com/errors/not-found"));
+        return problemDetail;
     }
 
-    /**
-     * Handles InvalidPriceException - when price data violates business rules.
-     *
-     * @param ex the exception
-     * @return 400 BAD REQUEST response
-     */
     @ExceptionHandler(InvalidPriceException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidPrice(InvalidPriceException ex) {
-        ErrorResponse error = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                ex.getMessage(),
-                LocalDateTime.now()
-        );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    public ProblemDetail handleInvalidPrice(InvalidPriceException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problemDetail.setTitle("Invalid Price Request");
+        problemDetail.setType(URI.create("https://api.prices.com/errors/bad-request"));
+        return problemDetail;
     }
 
-    /**
-     * Handles IllegalArgumentException - when input parameters are invalid.
-     *
-     * @param ex the exception
-     * @return 400 BAD REQUEST response
-     */
+    @ExceptionHandler(DomainValidationException.class)
+    public ProblemDetail handleDomainValidation(DomainValidationException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problemDetail.setTitle("Domain Validation Error");
+        problemDetail.setType(URI.create("https://api.prices.com/errors/validation-error"));
+        return problemDetail;
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
-        ErrorResponse error = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                "Invalid request parameters: " + ex.getMessage(),
-                LocalDateTime.now()
-        );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problemDetail.setTitle("Illegal Argument");
+        problemDetail.setType(URI.create("https://api.prices.com/errors/illegal-argument"));
+        return problemDetail;
     }
 
-    /**
-     * Handles MethodArgumentTypeMismatchException - when query parameter types are wrong.
-     * <p>
-     * Example: passing a non-numeric value for productId.
-     *
-     * @param ex the exception
-     * @return 400 BAD REQUEST response
-     */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         String message = String.format(
                 "Invalid value for parameter '%s': expected type %s",
                 ex.getName(),
                 Optional.of(ex).map(MethodArgumentTypeMismatchException::getRequiredType)
-                        .map(Class::getSimpleName).orElse("unknown")
-        );
-        ErrorResponse error = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                message,
-                LocalDateTime.now()
-        );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+                        .map(Class::getSimpleName).orElse("unknown"));
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, message);
+        problemDetail.setTitle("Type Mismatch");
+        problemDetail.setType(URI.create("https://api.prices.com/errors/type-mismatch"));
+        return problemDetail;
     }
 
-    /**
-     * Handles all other unexpected exceptions.
-     *
-     * @param ex the exception
-     * @return 500 INTERNAL SERVER ERROR response
-     */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
-        ErrorResponse error = new ErrorResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "An unexpected error occurred: " + ex.getMessage(),
-                LocalDateTime.now()
-        );
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    public ProblemDetail handleGenericException(Exception ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred: " + ex.getMessage());
+        problemDetail.setTitle("Internal Server Error");
+        problemDetail.setType(URI.create("https://api.prices.com/errors/internal-server-error"));
+        return problemDetail;
     }
 }
