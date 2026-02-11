@@ -1,14 +1,13 @@
 package com.inetum.prices.application.config;
 
 import com.inetum.prices.infrastructure.persistence.converter.PriceRulesR2dbcConverter;
-import io.r2dbc.spi.ConnectionFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.r2dbc.config.AbstractR2dbcConfiguration;
 import org.springframework.data.r2dbc.convert.R2dbcCustomConversions;
+import org.springframework.data.r2dbc.dialect.PostgresDialect;
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 
-import java.util.List;
+import java.util.Arrays;
 
 /**
  * R2DBC configuration for reactive database access.
@@ -33,19 +32,7 @@ import java.util.List;
  */
 @Configuration
 @EnableR2dbcRepositories(basePackages = "com.inetum.prices.infrastructure.persistence.repository")
-public class R2dbcConfiguration extends AbstractR2dbcConfiguration {
-
-    private final ConnectionFactory connectionFactory;
-
-    public R2dbcConfiguration(ConnectionFactory connectionFactory) {
-        this.connectionFactory = connectionFactory;
-    }
-
-    @Override
-    @Bean
-    public ConnectionFactory connectionFactory() {
-        return connectionFactory;
-    }
+public class R2dbcConfiguration {
 
     /**
      * Registers custom R2DBC converters for domain-specific type conversions.
@@ -62,11 +49,10 @@ public class R2dbcConfiguration extends AbstractR2dbcConfiguration {
      * @return R2dbcCustomConversions with registered custom converters
      */
     @Bean
-    @Override
     public R2dbcCustomConversions r2dbcCustomConversions() {
-        return new R2dbcCustomConversions(
-                getStoreConversions(),
-                List.of(
+        return R2dbcCustomConversions.of(
+                PostgresDialect.INSTANCE,
+                Arrays.asList(
                         new PriceRulesR2dbcConverter.PriceRulesToJsonConverter(),
                         new PriceRulesR2dbcConverter.JsonToPriceRulesConverter()
                 )
