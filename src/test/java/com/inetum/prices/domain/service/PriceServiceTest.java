@@ -10,6 +10,7 @@ import com.inetum.prices.domain.model.valueobject.PriceListId;
 import com.inetum.prices.domain.model.valueobject.Priority;
 import com.inetum.prices.domain.model.valueobject.ProductId;
 import com.inetum.prices.domain.ports.outbound.ProductPriceTimelineRepositoryPort;
+import com.inetum.prices.domain.service.mapper.PriceDomainMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -44,11 +46,35 @@ class PriceServiceTest {
     @Mock
     private ProductPriceTimelineRepositoryPort timelineRepository;
 
+    @Mock
+    private PriceDomainMapper priceDomainMapper;
+
     private PriceService priceService;
 
     @BeforeEach
     void setUp() {
-        priceService = new PriceService(timelineRepository);
+        priceService = new PriceService(timelineRepository, priceDomainMapper);
+
+        // Setup repository with lenient default to handle validation tests (returns empty Mono)
+        lenient().when(timelineRepository.findByProductAndBrand(any(), any()))
+                .thenReturn(Mono.empty());
+
+        // Setup mapper to convert PriceRule to Price (lenient since not all tests use it)
+        lenient().when(priceDomainMapper.toPriceEntity(any(PriceRule.class), any(ProductId.class), any(BrandId.class)))
+                .thenAnswer(invocation -> {
+                    PriceRule rule = invocation.getArgument(0);
+                    ProductId productId = invocation.getArgument(1);
+                    BrandId brandId = invocation.getArgument(2);
+                    return new Price(
+                            brandId,
+                            productId,
+                            rule.priceListId(),
+                            rule.startDate(),
+                            rule.endDate(),
+                            rule.priority(),
+                            rule.amount()
+                    );
+                });
     }
 
     @Test

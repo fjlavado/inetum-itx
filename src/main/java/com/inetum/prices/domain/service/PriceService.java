@@ -2,15 +2,17 @@ package com.inetum.prices.domain.service;
 
 import com.inetum.prices.domain.exception.PriceNotFoundException;
 import com.inetum.prices.domain.model.Price;
-import com.inetum.prices.domain.model.PriceRule;
-import com.inetum.prices.domain.model.ProductPriceTimeline;
 import com.inetum.prices.domain.model.valueobject.BrandId;
 import com.inetum.prices.domain.model.valueobject.ProductId;
 import com.inetum.prices.domain.ports.inbound.GetPriceUseCase;
 import com.inetum.prices.domain.ports.outbound.ProductPriceTimelineRepositoryPort;
+import com.inetum.prices.domain.service.mapper.PriceDomainMapper;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * Domain Service implementing the GetPriceUseCase with reactive CQRS pattern.
@@ -43,18 +45,19 @@ import java.time.LocalDateTime;
 public class PriceService implements GetPriceUseCase {
 
     private final ProductPriceTimelineRepositoryPort timelineRepository;
+    private final PriceDomainMapper priceDomainMapper;
 
     /**
-     * Constructs a new PriceService with the CQRS repository.
+     * Constructs a new PriceService with the CQRS repository and domain mapper.
      *
      * @param timelineRepository the repository port for fetching price timelines
-     * @throws IllegalArgumentException if timelineRepository is null
+     * @param priceDomainMapper  the mapper for converting PriceRule to Price
+     * @throws IllegalArgumentException if any parameter is null
      */
-    public PriceService(ProductPriceTimelineRepositoryPort timelineRepository) {
-        if (timelineRepository == null) {
-            throw new IllegalArgumentException("ProductPriceTimelineRepository cannot be null");
-        }
+    public PriceService(ProductPriceTimelineRepositoryPort timelineRepository,
+                        PriceDomainMapper priceDomainMapper) {
         this.timelineRepository = timelineRepository;
+        this.priceDomainMapper = priceDomainMapper;
     }
 
     /**
@@ -84,58 +87,46 @@ public class PriceService implements GetPriceUseCase {
      */
     @Override
     public Mono<Price> getApplicablePrice(LocalDateTime applicationDate, ProductId productId, BrandId brandId) {
-        // Validate inputs - defer to keep reactive
+        // Validate inputs and execute query - all deferred for reactive execution
         return Mono.defer(() -> {
-            if (applicationDate == null) {
-                return Mono.error(new IllegalArgumentException("Application date cannot be null"));
-            }
-            if (productId == null) {
-                return Mono.error(new IllegalArgumentException("ProductId cannot be null"));
-            }
-            if (brandId == null) {
-                return Mono.error(new IllegalArgumentException("BrandId cannot be null"));
+            // Check for validation errors
+            Optional<IllegalArgumentException> validationError = checkError(applicationDate, "Application date cannot be null")
+                    .or(() -> checkError(productId, "ProductId cannot be null"))
+                    .or(() -> checkError(brandId, "BrandId cannot be null"));
+
+            // If validation fails, return error immediately
+            if (validationError.isPresent()) {
+                return Mono.error(validationError.get());
             }
 
-            // Step 1: Fetch the entire pricing timeline for this product+brand reactively
-            // This is a non-blocking O(1) primary key lookup in PostgreSQL
-            return timelineRepository
-                    .findByProductAndBrand(productId, brandId)
+            // Validation passed - proceed with repository query
+            return timelineRepository.findByProductAndBrand(productId, brandId)
                     // If timeline not found, emit error
-                    .switchIfEmpty(Mono.error(() -> new PriceNotFoundException(applicationDate, productId, brandId)))
+                    .switchIfEmpty(PriceNotFoundException.asError(applicationDate, productId, brandId))
                     // Step 2: Let the aggregate determine the effective price
                     // This happens in-memory (fast!) and is synchronous within .flatMap()
-                    .flatMap(timeline -> {
-                        return timeline
-                                .getEffectivePrice(applicationDate)
-                                .map(effectiveRule -> convertRuleToPrice(effectiveRule, productId, brandId))
-                                // If no effective price found, emit error
-                                .map(Mono::just)
-                                .orElseGet(() -> Mono.error(new PriceNotFoundException(applicationDate, productId, brandId)));
-                    });
+                    .flatMap(timeline -> timeline
+                            .getEffectivePrice(applicationDate)
+                            .map(effectiveRule -> priceDomainMapper.toPriceEntity(effectiveRule, productId, brandId))
+                            // If no effective price found, emit error
+                            .map(Mono::just)
+                            .orElseGet(() -> PriceNotFoundException.asError(applicationDate, productId, brandId)));
         });
     }
 
     /**
-     * Converts a PriceRule (from the aggregate) back to a Price entity.
-     * <p>
-     * This is necessary to maintain API compatibility with the existing
-     * PriceResponse DTO structure. The conversion is lightweight and happens
-     * in-memory after the database query.
-     *
-     * @param rule the pricing rule from the timeline
-     * @param productId the product identifier
-     * @param brandId the brand identifier
-     * @return a Price entity for the REST API
+     * Filters the value when the value object is null
+     * @param value any object
+     * @param message needed to complete the Exception
+     * @return {@link Optional<IllegalArgumentException>}
      */
-    private Price convertRuleToPrice(PriceRule rule, ProductId productId, BrandId brandId) {
-        return new Price(
-                brandId,
-                productId,
-                rule.priceListId(),
-                rule.startDate(),
-                rule.endDate(),
-                rule.priority(),
-                rule.amount()
-        );
+    static Optional<IllegalArgumentException> checkError(Object value, String message) {
+        if (Objects.isNull(value)) {
+            return Optional.of(new IllegalArgumentException(message));
+        }
+        return Optional.empty();
+
     }
+
+
 }

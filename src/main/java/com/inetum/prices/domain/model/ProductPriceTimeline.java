@@ -1,5 +1,6 @@
 package com.inetum.prices.domain.model;
 
+import com.inetum.prices.domain.exception.DomainErrorException;
 import com.inetum.prices.domain.model.valueobject.BrandId;
 import com.inetum.prices.domain.model.valueobject.ProductId;
 
@@ -9,6 +10,10 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
+
+import static com.inetum.prices.domain.exception.DomainErrorException.requireNonNull;
+import static com.inetum.prices.domain.exception.DomainErrorException.require;
 
 /**
  * Aggregate Root: All pricing rules for a single product+brand combination.
@@ -53,23 +58,17 @@ public class ProductPriceTimeline {
      * @throws IllegalArgumentException if any parameter is null or rules is empty
      */
     public ProductPriceTimeline(ProductId productId, BrandId brandId, List<PriceRule> rules) {
-        if (productId == null) {
-            throw new IllegalArgumentException("ProductId cannot be null");
-        }
-        if (brandId == null) {
-            throw new IllegalArgumentException("BrandId cannot be null");
-        }
-        if (rules == null) {
-            throw new IllegalArgumentException("Rules cannot be null");
-        }
-        if (rules.isEmpty()) {
-            throw new IllegalArgumentException("Rules cannot be empty - must have at least one pricing rule");
-        }
+
+        requireNonNull(productId, "ProductId cannot be null")
+                .or(() -> requireNonNull(brandId, "BrandId cannot be null"))
+                .or(() -> requireNonNull(rules, "rules cannot be null"))
+                .or(() -> require(() -> !rules.isEmpty(), "Rules cannot be empty - must have at least one pricing rule"))
+                .ifPresent(ex -> {throw ex;});
 
         this.productId = productId;
         this.brandId = brandId;
         // Defensive copy to ensure immutability
-        this.rules = Collections.unmodifiableList(new ArrayList<>(rules));
+        this.rules = List.copyOf(rules);
     }
 
     /**

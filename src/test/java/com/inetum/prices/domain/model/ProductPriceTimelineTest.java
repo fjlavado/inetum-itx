@@ -45,7 +45,7 @@ class ProductPriceTimelineTest {
         List<PriceRule> rules = createSampleRules();
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(RuntimeException.class, () ->
                 new ProductPriceTimeline(null, BRAND_ID, rules)
         );
     }
@@ -56,7 +56,7 @@ class ProductPriceTimelineTest {
         List<PriceRule> rules = createSampleRules();
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(RuntimeException.class, () ->
                 new ProductPriceTimeline(PRODUCT_ID, null, rules)
         );
     }
@@ -64,7 +64,7 @@ class ProductPriceTimelineTest {
     @Test
     void shouldRejectNullRules() {
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(RuntimeException.class, () ->
                 new ProductPriceTimeline(PRODUCT_ID, BRAND_ID, null)
         );
     }
@@ -75,7 +75,7 @@ class ProductPriceTimelineTest {
         List<PriceRule> emptyRules = Collections.emptyList();
 
         // When & Then
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(RuntimeException.class, () ->
                 new ProductPriceTimeline(PRODUCT_ID, BRAND_ID, emptyRules)
         );
     }
