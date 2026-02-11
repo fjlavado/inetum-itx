@@ -16,28 +16,29 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for PriceService with CQRS pattern.
+ * Unit tests for PriceService with reactive CQRS pattern.
  * <p>
- * These tests focus on domain logic in isolation, using Mockito to mock the repository.
+ * These tests focus on domain logic in isolation, using Mockito to mock the repository
+ * and StepVerifier to test reactive Mono flows.
  * No Spring context is loaded - these are fast, pure unit tests.
  * <p>
- * Tests have been updated to use ProductPriceTimeline aggregate instead of individual Price entities.
+ * Tests use ProductPriceTimeline aggregate with reactive Mono<> return types.
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("PriceService Unit Tests (CQRS)")
+@DisplayName("PriceService Unit Tests (Reactive CQRS)")
 class PriceServiceTest {
 
     @Mock
@@ -60,15 +61,20 @@ class PriceServiceTest {
 
         ProductPriceTimeline timeline = createTimelineWithMultipleRules(productId, brandId);
         when(timelineRepository.findByProductAndBrand(any(), any()))
-                .thenReturn(Optional.of(timeline));
+                .thenReturn(Mono.just(timeline));
 
         // When
-        Price result = priceService.getApplicablePrice(applicationDate, productId, brandId);
+        Mono<Price> result = priceService.getApplicablePrice(applicationDate, productId, brandId);
 
-        // Then
-        assertThat(result.priceListId().value()).isEqualTo(2);
-        assertThat(result.priority().value()).isEqualTo(1);
-        assertThat(result.amount().amount()).isEqualByComparingTo(new BigDecimal("25.45"));
+        // Then - Use StepVerifier for reactive assertions
+        StepVerifier.create(result)
+                .assertNext(price -> {
+                    assertThat(price.priceListId().value()).isEqualTo(2);
+                    assertThat(price.priority().value()).isEqualTo(1);
+                    assertThat(price.amount().amount()).isEqualByComparingTo(new BigDecimal("25.45"));
+                })
+                .verifyComplete();
+
         verify(timelineRepository).findByProductAndBrand(productId, brandId);
     }
 
@@ -82,38 +88,46 @@ class PriceServiceTest {
 
         ProductPriceTimeline timeline = createTimelineWithSingleRule(productId, brandId);
         when(timelineRepository.findByProductAndBrand(any(), any()))
-                .thenReturn(Optional.of(timeline));
+                .thenReturn(Mono.just(timeline));
 
         // When
-        Price result = priceService.getApplicablePrice(applicationDate, productId, brandId);
+        Mono<Price> result = priceService.getApplicablePrice(applicationDate, productId, brandId);
 
-        // Then
-        assertThat(result.priceListId().value()).isEqualTo(1);
-        assertThat(result.priority().value()).isZero();
-        assertThat(result.amount().amount()).isEqualByComparingTo(new BigDecimal("35.50"));
+        // Then - Use StepVerifier
+        StepVerifier.create(result)
+                .assertNext(price -> {
+                    assertThat(price.priceListId().value()).isEqualTo(1);
+                    assertThat(price.priority().value()).isZero();
+                    assertThat(price.amount().amount()).isEqualByComparingTo(new BigDecimal("35.50"));
+                })
+                .verifyComplete();
     }
 
     @Test
-    @DisplayName("Should throw PriceNotFoundException when timeline not found")
-    void shouldThrowExceptionWhenTimelineNotFound() {
+    @DisplayName("Should emit error when timeline not found")
+    void shouldEmitErrorWhenTimelineNotFound() {
         // Given
         LocalDateTime applicationDate = LocalDateTime.of(2020, 6, 14, 10, 0);
         ProductId productId = new ProductId(99999L);
         BrandId brandId = new BrandId(1L);
 
         when(timelineRepository.findByProductAndBrand(any(), any()))
-                .thenReturn(Optional.empty());
+                .thenReturn(Mono.empty());
 
-        // When / Then
-        assertThatThrownBy(() ->
-                priceService.getApplicablePrice(applicationDate, productId, brandId))
-                .isInstanceOf(PriceNotFoundException.class)
-                .hasMessageContaining("No applicable price found");
+        // When
+        Mono<Price> result = priceService.getApplicablePrice(applicationDate, productId, brandId);
+
+        // Then - Use StepVerifier to verify error
+        StepVerifier.create(result)
+                .expectErrorMatches(throwable ->
+                        throwable instanceof PriceNotFoundException &&
+                        throwable.getMessage().contains("No applicable price found"))
+                .verify();
     }
 
     @Test
-    @DisplayName("Should throw PriceNotFoundException when no rules apply for date")
-    void shouldThrowExceptionWhenNoRulesApply() {
+    @DisplayName("Should emit error when no rules apply for date")
+    void shouldEmitErrorWhenNoRulesApply() {
         // Given - date before any rules apply
         LocalDateTime applicationDate = LocalDateTime.of(2020, 6, 13, 23, 59);
         ProductId productId = new ProductId(35455L);
@@ -121,55 +135,71 @@ class PriceServiceTest {
 
         ProductPriceTimeline timeline = createTimelineWithSingleRule(productId, brandId);
         when(timelineRepository.findByProductAndBrand(any(), any()))
-                .thenReturn(Optional.of(timeline));
+                .thenReturn(Mono.just(timeline));
 
-        // When / Then
-        assertThatThrownBy(() ->
-                priceService.getApplicablePrice(applicationDate, productId, brandId))
-                .isInstanceOf(PriceNotFoundException.class)
-                .hasMessageContaining("No applicable price found");
+        // When
+        Mono<Price> result = priceService.getApplicablePrice(applicationDate, productId, brandId);
+
+        // Then - Use StepVerifier to verify error
+        StepVerifier.create(result)
+                .expectErrorMatches(throwable ->
+                        throwable instanceof PriceNotFoundException &&
+                        throwable.getMessage().contains("No applicable price found"))
+                .verify();
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when applicationDate is null")
-    void shouldThrowExceptionWhenApplicationDateIsNull() {
+    @DisplayName("Should emit error when applicationDate is null")
+    void shouldEmitErrorWhenApplicationDateIsNull() {
         // Given
         ProductId productId = new ProductId(35455L);
         BrandId brandId = new BrandId(1L);
 
-        // When / Then
-        assertThatThrownBy(() ->
-                priceService.getApplicablePrice(null, productId, brandId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Application date cannot be null");
+        // When
+        Mono<Price> result = priceService.getApplicablePrice(null, productId, brandId);
+
+        // Then - Use StepVerifier to verify error
+        StepVerifier.create(result)
+                .expectErrorMatches(throwable ->
+                        throwable instanceof IllegalArgumentException &&
+                        throwable.getMessage().contains("Application date cannot be null"))
+                .verify();
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when productId is null")
-    void shouldThrowExceptionWhenProductIdIsNull() {
+    @DisplayName("Should emit error when productId is null")
+    void shouldEmitErrorWhenProductIdIsNull() {
         // Given
         LocalDateTime applicationDate = LocalDateTime.of(2020, 6, 14, 10, 0);
         BrandId brandId = new BrandId(1L);
 
-        // When / Then
-        assertThatThrownBy(() ->
-                priceService.getApplicablePrice(applicationDate, null, brandId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("ProductId cannot be null");
+        // When
+        Mono<Price> result = priceService.getApplicablePrice(applicationDate, null, brandId);
+
+        // Then - Use StepVerifier to verify error
+        StepVerifier.create(result)
+                .expectErrorMatches(throwable ->
+                        throwable instanceof IllegalArgumentException &&
+                        throwable.getMessage().contains("ProductId cannot be null"))
+                .verify();
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when brandId is null")
-    void shouldThrowExceptionWhenBrandIdIsNull() {
+    @DisplayName("Should emit error when brandId is null")
+    void shouldEmitErrorWhenBrandIdIsNull() {
         // Given
         LocalDateTime applicationDate = LocalDateTime.of(2020, 6, 14, 10, 0);
         ProductId productId = new ProductId(35455L);
 
-        // When / Then
-        assertThatThrownBy(() ->
-                priceService.getApplicablePrice(applicationDate, productId, null))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("BrandId cannot be null");
+        // When
+        Mono<Price> result = priceService.getApplicablePrice(applicationDate, productId, null);
+
+        // Then - Use StepVerifier to verify error
+        StepVerifier.create(result)
+                .expectErrorMatches(throwable ->
+                        throwable instanceof IllegalArgumentException &&
+                        throwable.getMessage().contains("BrandId cannot be null"))
+                .verify();
     }
 
     // Helper methods
