@@ -4,11 +4,12 @@ import com.inetum.prices.domain.exception.PriceNotFoundException;
 import com.inetum.prices.domain.model.Price;
 import com.inetum.prices.domain.model.valueobject.BrandId;
 import com.inetum.prices.domain.model.valueobject.ProductId;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 
 /**
- * Inbound Port (Use Case) for querying applicable prices.
+ * Inbound Port (Use Case) for querying applicable prices reactively.
  * <p>
  * This interface defines the contract for the primary use case in the pricing domain:
  * "Get the applicable price for a product and brand at a specific date/time."
@@ -21,27 +22,27 @@ import java.time.LocalDateTime;
  *   <li>Single responsibility: one use case per interface</li>
  *   <li>Technology agnostic: no HTTP, JSON, or database concepts</li>
  *   <li>Uses domain value objects for type safety</li>
- *   <li>Throws domain exceptions, not infrastructure exceptions</li>
+ *   <li>Returns reactive Mono for non-blocking execution</li>
+ *   <li>Errors propagated as Mono.error() signals</li>
  * </ul>
  */
 public interface GetPriceUseCase {
 
     /**
-     * Retrieves the applicable price for a product/brand at a specific date/time.
+     * Retrieves the applicable price for a product/brand at a specific date/time reactively.
      * <p>
      * <b>Business Logic:</b>
      * <ol>
      *   <li>Find all prices matching brand, product, and date range</li>
      *   <li>If multiple prices found, select the one with highest priority</li>
-     *   <li>If no price found, throw PriceNotFoundException</li>
+     *   <li>If no price found, emit Mono.error(PriceNotFoundException)</li>
      * </ol>
      *
      * @param applicationDate the date/time to query (must not be null)
      * @param productId       the product identifier (must not be null)
      * @param brandId         the brand identifier (must not be null)
-     * @return the applicable Price with highest priority
-     * @throws PriceNotFoundException   if no applicable price is found
-     * @throws IllegalArgumentException if any parameter is null
+     * @return Mono emitting the applicable Price with highest priority, or error if not found
+     * @throws IllegalArgumentException if any parameter is null (emitted as Mono.error)
      */
-    Price getApplicablePrice(LocalDateTime applicationDate, ProductId productId, BrandId brandId);
+    Mono<Price> getApplicablePrice(LocalDateTime applicationDate, ProductId productId, BrandId brandId);
 }

@@ -1,26 +1,28 @@
 package com.inetum.prices.infrastructure.persistence.entity;
 
 import com.inetum.prices.domain.model.PriceRule;
-import com.inetum.prices.infrastructure.persistence.converter.PriceRulesJsonConverter;
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * JPA Entity for ProductPriceTimeline stored with JSONB column.
+ * R2DBC Entity for ProductPriceTimeline stored with JSONB column.
  * <p>
  * This entity represents the CQRS read model, storing all pricing rules
  * for a product+brand combination as a single JSONB document in PostgreSQL.
+ * Uses R2DBC for reactive, non-blocking database access.
  * <p>
  * <b>Design Decisions:</b>
  * <ul>
  *   <li>Composite primary key: (product_id, brand_id)</li>
  *   <li>JSONB column for price_rules enables flexible storage and fast queries</li>
- *   <li>Optimistic locking via @Version for concurrent update protection</li>
+ *   <li>R2DBC converters handle JSONB serialization/deserialization</li>
  *   <li>Timestamps for audit trail</li>
  * </ul>
  * <p>
@@ -28,6 +30,7 @@ import java.util.List;
  * <ul>
  *   <li>Primary key lookup: O(1) via B-tree index</li>
  *   <li>JSONB deserialization: O(n) where n = number of rules (typically < 10)</li>
+ *   <li>Non-blocking reactive execution with backpressure support</li>
  *   <li>GIN index on JSONB column enables advanced JSON queries if needed</li>
  * </ul>
  * <p>
@@ -44,26 +47,25 @@ import java.util.List;
  * );
  * </pre>
  */
-@Entity
-@Table(name = "product_price_timelines")
+@Table("product_price_timelines")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@IdClass(ProductPriceTimelineId.class)
 public class ProductPriceTimelineEntity {
 
     /**
      * Product identifier (part of composite primary key).
+     * Note: In R2DBC, we mark the first field of a composite key as @Id.
+     * The actual composite key constraint is enforced by the database schema.
      */
     @Id
-    @Column(name = "product_id", nullable = false)
+    @Column("product_id")
     private Long productId;
 
     /**
      * Brand identifier (part of composite primary key).
      */
-    @Id
-    @Column(name = "brand_id", nullable = false)
+    @Column("brand_id")
     private Long brandId;
 
     /**
@@ -71,48 +73,31 @@ public class ProductPriceTimelineEntity {
      * <p>
      * The JSON structure allows PostgreSQL to efficiently store and query
      * nested data while maintaining type safety in the application layer.
+     * <p>
+     * Note: JSONB conversion is handled by custom R2DBC converter registered
+     * in configuration.
      */
-    @Convert(converter = PriceRulesJsonConverter.class)
-    @Column(name = "price_rules", columnDefinition = "jsonb", nullable = false)
+    @Column("price_rules")
     private List<PriceRule> priceRules;
 
     /**
-     * Version for optimistic locking.
+     * Version for tracking updates.
      * <p>
-     * Prevents lost updates when multiple processes attempt to modify
-     * the same product's pricing rules concurrently.
+     * Note: R2DBC doesn't have built-in optimistic locking like JPA,
+     * but we keep this field for audit purposes.
      */
-    @Version
-    @Column(name = "version", nullable = false)
+    @Column("version")
     private Long version;
 
     /**
      * Timestamp when this record was created.
      */
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column("created_at")
     private LocalDateTime createdAt;
 
     /**
      * Timestamp when this record was last updated.
      */
-    @Column(name = "updated_at", nullable = false)
+    @Column("updated_at")
     private LocalDateTime updatedAt;
-
-    /**
-     * Pre-persist callback to set creation timestamp.
-     */
-    @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        createdAt = now;
-        updatedAt = now;
-    }
-
-    /**
-     * Pre-update callback to update modification timestamp.
-     */
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }
