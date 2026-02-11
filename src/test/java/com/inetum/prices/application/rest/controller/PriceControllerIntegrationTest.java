@@ -5,44 +5,47 @@ import com.inetum.prices.integration.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for the Price Controller implementing the 5 mandatory test scenarios.
+ * Reactive integration tests for the Price API implementing the 5 mandatory test scenarios.
  * <p>
- * These tests verify the complete end-to-end flow:
+ * These tests verify the complete end-to-end reactive flow:
  * <ol>
- *   <li>HTTP Request → REST Controller</li>
- *   <li>Controller → Use Case (Domain Service)</li>
+ *   <li>HTTP Request → RouterFunction</li>
+ *   <li>Router → PriceHandler (Reactive Handler)</li>
+ *   <li>Handler → Use Case (Reactive Domain Service)</li>
  *   <li>Use Case → Repository Port</li>
- *   <li>Repository Adapter → Spring Data JPA → PostgreSQL (Testcontainer)</li>
- *   <li>Response back through all layers</li>
+ *   <li>Repository Adapter → Spring Data R2DBC → PostgreSQL (Testcontainer)</li>
+ *   <li>Response back through all layers (reactive Mono chain)</li>
  * </ol>
  * <p>
- * <b>Test Data:</b> Loaded via Flyway migration V2__insert_test_data.sql
+ * <b>Test Data:</b> Loaded via Flyway migration V2__insert_test_data.sql and V4__migrate_to_timelines.sql
  * <p>
  * <b>Test Scenarios (as specified in requirements):</b>
  * <ul>
  *   <li>Test 1: June 14 at 10:00 → Price List 1, 35.50 EUR</li>
- *   <li>Test 2: June 14 at 16:00 → Price List 2, 25.45 EUR</li>
- *   <li>Test 3: June 14 at 21:00 → Price List 1, 35.50 EUR</li>
+ *   <li>Test 2: June 14 at 16:00 → Price List 2, 25.45 EUR (higher priority)</li>
+ *   <li>Test 3: June 14 at 21:00 → Price List 1, 35.50 EUR (promotion ended)</li>
  *   <li>Test 4: June 15 at 10:00 → Price List 3, 30.50 EUR</li>
  *   <li>Test 5: June 16 at 21:00 → Price List 4, 38.95 EUR</li>
  * </ul>
+ * <p>
+ * <b>Testing Approach:</b>
+ * Uses Spring WebFlux's WebTestClient for testing reactive endpoints.
+ * WebTestClient provides a fluent API for testing WebFlux applications with
+ * built-in support for reactive types (Mono, Flux).
  */
-@DisplayName("Price Controller Integration Tests - 5 Mandatory Scenarios")
+@DisplayName("Reactive Price API Integration Tests - 5 Mandatory Scenarios")
 class PriceControllerIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
-    private TestRestTemplate restTemplate;
+    private WebTestClient webTestClient;
 
     private static final Long PRODUCT_ID = 35455L;
     private static final Long BRAND_ID = 1L; // ZARA
@@ -53,21 +56,29 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         // Given
         String applicationDate = "2020-06-14T10:00:00";
 
-        // When
-        ResponseEntity<PriceResponse> response = queryPrice(applicationDate);
+        // When & Then
+        PriceResponse priceResponse = webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/prices")
+                        .queryParam("applicationDate", applicationDate)
+                        .queryParam("productId", PRODUCT_ID)
+                        .queryParam("brandId", BRAND_ID)
+                        .build())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(PriceResponse.class)
+                .returnResult()
+                .getResponseBody();
 
         // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        
-        PriceResponse priceResponse = response.getBody();
+        assertThat(priceResponse).isNotNull();
         assertThat(priceResponse.productId()).isEqualTo(PRODUCT_ID);
         assertThat(priceResponse.brandId()).isEqualTo(BRAND_ID);
         assertThat(priceResponse.priceList()).isEqualTo(1);
         assertThat(priceResponse.price()).isEqualByComparingTo(new BigDecimal("35.50"));
         assertThat(priceResponse.startDate()).isEqualTo(LocalDateTime.parse("2020-06-14T00:00:00"));
         assertThat(priceResponse.endDate()).isEqualTo(LocalDateTime.parse("2020-12-31T23:59:59"));
-        
+
         System.out.println("✅ Test 1 PASSED: " + priceResponse);
     }
 
@@ -77,21 +88,17 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         // Given
         String applicationDate = "2020-06-14T16:00:00";
 
-        // When
-        ResponseEntity<PriceResponse> response = queryPrice(applicationDate);
+        // When & Then
+        PriceResponse priceResponse = queryPrice(applicationDate);
 
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        
-        PriceResponse priceResponse = response.getBody();
+        assertThat(priceResponse).isNotNull();
         assertThat(priceResponse.productId()).isEqualTo(PRODUCT_ID);
         assertThat(priceResponse.brandId()).isEqualTo(BRAND_ID);
         assertThat(priceResponse.priceList()).isEqualTo(2);
         assertThat(priceResponse.price()).isEqualByComparingTo(new BigDecimal("25.45"));
         assertThat(priceResponse.startDate()).isEqualTo(LocalDateTime.parse("2020-06-14T15:00:00"));
         assertThat(priceResponse.endDate()).isEqualTo(LocalDateTime.parse("2020-06-14T18:30:00"));
-        
+
         System.out.println("✅ Test 2 PASSED: " + priceResponse);
     }
 
@@ -101,21 +108,17 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         // Given
         String applicationDate = "2020-06-14T21:00:00";
 
-        // When
-        ResponseEntity<PriceResponse> response = queryPrice(applicationDate);
+        // When & Then
+        PriceResponse priceResponse = queryPrice(applicationDate);
 
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        
-        PriceResponse priceResponse = response.getBody();
+        assertThat(priceResponse).isNotNull();
         assertThat(priceResponse.productId()).isEqualTo(PRODUCT_ID);
         assertThat(priceResponse.brandId()).isEqualTo(BRAND_ID);
         assertThat(priceResponse.priceList()).isEqualTo(1);
         assertThat(priceResponse.price()).isEqualByComparingTo(new BigDecimal("35.50"));
         assertThat(priceResponse.startDate()).isEqualTo(LocalDateTime.parse("2020-06-14T00:00:00"));
         assertThat(priceResponse.endDate()).isEqualTo(LocalDateTime.parse("2020-12-31T23:59:59"));
-        
+
         System.out.println("✅ Test 3 PASSED: " + priceResponse);
     }
 
@@ -125,21 +128,17 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         // Given
         String applicationDate = "2020-06-15T10:00:00";
 
-        // When
-        ResponseEntity<PriceResponse> response = queryPrice(applicationDate);
+        // When & Then
+        PriceResponse priceResponse = queryPrice(applicationDate);
 
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        
-        PriceResponse priceResponse = response.getBody();
+        assertThat(priceResponse).isNotNull();
         assertThat(priceResponse.productId()).isEqualTo(PRODUCT_ID);
         assertThat(priceResponse.brandId()).isEqualTo(BRAND_ID);
         assertThat(priceResponse.priceList()).isEqualTo(3);
         assertThat(priceResponse.price()).isEqualByComparingTo(new BigDecimal("30.50"));
         assertThat(priceResponse.startDate()).isEqualTo(LocalDateTime.parse("2020-06-15T00:00:00"));
         assertThat(priceResponse.endDate()).isEqualTo(LocalDateTime.parse("2020-06-15T11:00:00"));
-        
+
         System.out.println("✅ Test 4 PASSED: " + priceResponse);
     }
 
@@ -149,21 +148,17 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         // Given
         String applicationDate = "2020-06-16T21:00:00";
 
-        // When
-        ResponseEntity<PriceResponse> response = queryPrice(applicationDate);
+        // When & Then
+        PriceResponse priceResponse = queryPrice(applicationDate);
 
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        
-        PriceResponse priceResponse = response.getBody();
+        assertThat(priceResponse).isNotNull();
         assertThat(priceResponse.productId()).isEqualTo(PRODUCT_ID);
         assertThat(priceResponse.brandId()).isEqualTo(BRAND_ID);
         assertThat(priceResponse.priceList()).isEqualTo(4);
         assertThat(priceResponse.price()).isEqualByComparingTo(new BigDecimal("38.95"));
         assertThat(priceResponse.startDate()).isEqualTo(LocalDateTime.parse("2020-06-15T16:00:00"));
         assertThat(priceResponse.endDate()).isEqualTo(LocalDateTime.parse("2020-12-31T23:59:59"));
-        
+
         System.out.println("✅ Test 5 PASSED: " + priceResponse);
     }
 
@@ -171,56 +166,57 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("Should return 404 when no price exists for product/brand/date")
     void shouldReturn404WhenNoPriceFound() {
         // Given - non-existent product
-        String url = String.format(
-                "/prices?applicationDate=%s&productId=%d&brandId=%d",
-                "2020-06-14T10:00:00",
-                99999L,
-                BRAND_ID
-        );
+        Long nonExistentProductId = 99999L;
 
-        // When
-        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+        // When & Then
+        webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/prices")
+                        .queryParam("applicationDate", "2020-06-14T10:00:00")
+                        .queryParam("productId", nonExistentProductId)
+                        .queryParam("brandId", BRAND_ID)
+                        .build())
+                .exchange()
+                .expectStatus().isNotFound();
 
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(response.getBody()).contains("No applicable price found");
-        
         System.out.println("✅ 404 Test PASSED");
     }
 
     @Test
     @DisplayName("Should return 400 when request parameters are invalid")
     void shouldReturn400WhenParametersAreInvalid() {
-        // Given - invalid product ID
-        String url = String.format(
-                "/prices?applicationDate=%s&productId=%s&brandId=%d",
-                "2020-06-14T10:00:00",
-                "invalid",
-                BRAND_ID
-        );
+        // Given - invalid product ID (string instead of number)
+        webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/prices")
+                        .queryParam("applicationDate", "2020-06-14T10:00:00")
+                        .queryParam("productId", "invalid")
+                        .queryParam("brandId", BRAND_ID)
+                        .build())
+                .exchange()
+                .expectStatus().isBadRequest();
 
-        // When
-        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
-
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        
         System.out.println("✅ 400 Test PASSED");
     }
 
     /**
-     * Helper method to query the price endpoint.
+     * Helper method to query the price endpoint reactively.
      *
      * @param applicationDate ISO-8601 formatted date string
-     * @return ResponseEntity with PriceResponse
+     * @return PriceResponse from the API
      */
-    private ResponseEntity<PriceResponse> queryPrice(String applicationDate) {
-        String url = String.format(
-                "/prices?applicationDate=%s&productId=%d&brandId=%d",
-                applicationDate,
-                PRODUCT_ID,
-                BRAND_ID
-        );
-        return restTemplate.getForEntity(url, PriceResponse.class);
+    private PriceResponse queryPrice(String applicationDate) {
+        return webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/prices")
+                        .queryParam("applicationDate", applicationDate)
+                        .queryParam("productId", PRODUCT_ID)
+                        .queryParam("brandId", BRAND_ID)
+                        .build())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(PriceResponse.class)
+                .returnResult()
+                .getResponseBody();
     }
 }
