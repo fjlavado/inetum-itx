@@ -218,6 +218,51 @@
 					</execution>
 				</executions>
 			</plugin>
+
+			<!-- JMeter Maven Plugin for Performance Testing -->
+			<plugin>
+				<groupId>com.lazerycode.jmeter</groupId>
+				<artifactId>jmeter-maven-plugin</artifactId>
+				<version>3.7.0</version>
+				<executions>
+					<execution>
+						<id>jmeter-tests</id>
+						<goals>
+							<goal>jmeter</goal>
+						</goals>
+						<phase>integration-test</phase>
+					</execution>
+					<execution>
+						<id>jmeter-check-results</id>
+						<goals>
+							<goal>results</goal>
+						</goals>
+						<phase>verify</phase>
+					</execution>
+				</executions>
+				<configuration>
+					<!-- Test files directory -->
+					<testFilesDirectory>${project.basedir}/src/test/jmeter</testFilesDirectory>
+
+					<!-- Results directory -->
+					<resultsDirectory>${project.build.directory}/jmeter/results</resultsDirectory>
+
+					<!-- JMeter properties -->
+					<propertiesUser>
+						<threads.count>100</threads.count>
+						<rampup.seconds>60</rampup.seconds>
+						<duration.seconds>300</duration.seconds>
+						<target.host>localhost</target.host>
+						<target.port>8080</target.port>
+					</propertiesUser>
+
+					<!-- Generate HTML dashboard -->
+					<generateReports>true</generateReports>
+
+					<!-- Ignore failures to allow report generation -->
+					<ignoreResultFailures>true</ignoreResultFailures>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 
