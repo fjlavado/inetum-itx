@@ -2,6 +2,8 @@ package com.inetum.prices.domain.exception;
 
 import com.inetum.prices.domain.model.valueobject.BrandId;
 import com.inetum.prices.domain.model.valueobject.ProductId;
+import lombok.Getter;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 
@@ -15,7 +17,8 @@ import java.time.LocalDateTime;
  * that should be caught and translated to appropriate HTTP responses in the
  * application layer.
  */
-public class PriceNotFoundException extends RuntimeException {
+@Getter
+public class PriceNotFoundException extends DomainErrorException {
 
     private final LocalDateTime applicationDate;
     private final transient ProductId productId;
@@ -52,15 +55,8 @@ public class PriceNotFoundException extends RuntimeException {
         this.brandId = null;
     }
 
-    public LocalDateTime getApplicationDate() {
-        return applicationDate;
-    }
 
-    public ProductId getProductId() {
-        return productId;
-    }
-
-    public BrandId getBrandId() {
-        return brandId;
+    public static <T> Mono<T> asError(LocalDateTime applicationDate, ProductId productId, BrandId brandId) {
+        return Mono.error(new PriceNotFoundException(applicationDate, productId, brandId));
     }
 }

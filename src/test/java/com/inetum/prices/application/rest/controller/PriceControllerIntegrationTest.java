@@ -1,6 +1,6 @@
 package com.inetum.prices.application.rest.controller;
 
-import com.inetum.prices.application.rest.dto.PriceResponse;
+import com.inetum.prices.application.rest.dto.generated.PriceResponse;
 import com.inetum.prices.integration.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,17 +13,22 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Reactive integration tests for the Price API implementing the 5 mandatory test scenarios.
+ * Reactive integration tests for the OpenAPI-based Price API implementing the 5 mandatory test scenarios.
  * <p>
  * These tests verify the complete end-to-end reactive flow:
  * <ol>
- *   <li>HTTP Request → RouterFunction</li>
- *   <li>Router → PriceHandler (Reactive Handler)</li>
- *   <li>Handler → Use Case (Reactive Domain Service)</li>
+ *   <li>HTTP Request → PriceController (OpenAPI-generated interface implementation)</li>
+ *   <li>Controller → Use Case (Reactive Domain Service)</li>
  *   <li>Use Case → Repository Port</li>
  *   <li>Repository Adapter → Spring Data R2DBC → PostgreSQL (Testcontainer)</li>
  *   <li>Response back through all layers (reactive Mono chain)</li>
  * </ol>
+ * <p>
+ * <b>API Contract:</b> Defined in openapi.yml, enforced via OpenAPI Generator
+ * <br>
+ * <b>Endpoint:</b> GET /v1/prices (versioned API)
+ * <br>
+ * <b>Response DTOs:</b> OpenAPI-generated PriceResponse and ErrorResponse
  * <p>
  * <b>Test Data:</b> Loaded via Flyway migration V2__insert_test_data.sql and V4__migrate_to_timelines.sql
  * <p>
@@ -59,7 +64,7 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         // When & Then
         PriceResponse priceResponse = webTestClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/prices")
+                        .path("/v1/prices")
                         .queryParam("applicationDate", applicationDate)
                         .queryParam("productId", PRODUCT_ID)
                         .queryParam("brandId", BRAND_ID)
@@ -72,12 +77,12 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
 
         // Then
         assertThat(priceResponse).isNotNull();
-        assertThat(priceResponse.productId()).isEqualTo(PRODUCT_ID);
-        assertThat(priceResponse.brandId()).isEqualTo(BRAND_ID);
-        assertThat(priceResponse.priceList()).isEqualTo(1);
-        assertThat(priceResponse.price()).isEqualByComparingTo(new BigDecimal("35.50"));
-        assertThat(priceResponse.startDate()).isEqualTo(LocalDateTime.parse("2020-06-14T00:00:00"));
-        assertThat(priceResponse.endDate()).isEqualTo(LocalDateTime.parse("2020-12-31T23:59:59"));
+        assertThat(priceResponse.getProductId()).isEqualTo(PRODUCT_ID);
+        assertThat(priceResponse.getBrandId()).isEqualTo(BRAND_ID);
+        assertThat(priceResponse.getPriceList()).isEqualTo(1);
+        assertThat(priceResponse.getPrice()).isEqualTo(35.50);
+        assertThat(priceResponse.getStartDate()).isEqualTo(LocalDateTime.parse("2020-06-14T00:00:00"));
+        assertThat(priceResponse.getEndDate()).isEqualTo(LocalDateTime.parse("2020-12-31T23:59:59"));
 
         System.out.println("✅ Test 1 PASSED: " + priceResponse);
     }
@@ -92,12 +97,12 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         PriceResponse priceResponse = queryPrice(applicationDate);
 
         assertThat(priceResponse).isNotNull();
-        assertThat(priceResponse.productId()).isEqualTo(PRODUCT_ID);
-        assertThat(priceResponse.brandId()).isEqualTo(BRAND_ID);
-        assertThat(priceResponse.priceList()).isEqualTo(2);
-        assertThat(priceResponse.price()).isEqualByComparingTo(new BigDecimal("25.45"));
-        assertThat(priceResponse.startDate()).isEqualTo(LocalDateTime.parse("2020-06-14T15:00:00"));
-        assertThat(priceResponse.endDate()).isEqualTo(LocalDateTime.parse("2020-06-14T18:30:00"));
+        assertThat(priceResponse.getProductId()).isEqualTo(PRODUCT_ID);
+        assertThat(priceResponse.getBrandId()).isEqualTo(BRAND_ID);
+        assertThat(priceResponse.getPriceList()).isEqualTo(2);
+        assertThat(priceResponse.getPrice()).isEqualTo(25.45);
+        assertThat(priceResponse.getStartDate()).isEqualTo(LocalDateTime.parse("2020-06-14T15:00:00"));
+        assertThat(priceResponse.getEndDate()).isEqualTo(LocalDateTime.parse("2020-06-14T18:30:00"));
 
         System.out.println("✅ Test 2 PASSED: " + priceResponse);
     }
@@ -112,12 +117,12 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         PriceResponse priceResponse = queryPrice(applicationDate);
 
         assertThat(priceResponse).isNotNull();
-        assertThat(priceResponse.productId()).isEqualTo(PRODUCT_ID);
-        assertThat(priceResponse.brandId()).isEqualTo(BRAND_ID);
-        assertThat(priceResponse.priceList()).isEqualTo(1);
-        assertThat(priceResponse.price()).isEqualByComparingTo(new BigDecimal("35.50"));
-        assertThat(priceResponse.startDate()).isEqualTo(LocalDateTime.parse("2020-06-14T00:00:00"));
-        assertThat(priceResponse.endDate()).isEqualTo(LocalDateTime.parse("2020-12-31T23:59:59"));
+        assertThat(priceResponse.getProductId()).isEqualTo(PRODUCT_ID);
+        assertThat(priceResponse.getBrandId()).isEqualTo(BRAND_ID);
+        assertThat(priceResponse.getPriceList()).isEqualTo(1);
+        assertThat(priceResponse.getPrice()).isEqualTo(35.50);
+        assertThat(priceResponse.getStartDate()).isEqualTo(LocalDateTime.parse("2020-06-14T00:00:00"));
+        assertThat(priceResponse.getEndDate()).isEqualTo(LocalDateTime.parse("2020-12-31T23:59:59"));
 
         System.out.println("✅ Test 3 PASSED: " + priceResponse);
     }
@@ -132,12 +137,12 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         PriceResponse priceResponse = queryPrice(applicationDate);
 
         assertThat(priceResponse).isNotNull();
-        assertThat(priceResponse.productId()).isEqualTo(PRODUCT_ID);
-        assertThat(priceResponse.brandId()).isEqualTo(BRAND_ID);
-        assertThat(priceResponse.priceList()).isEqualTo(3);
-        assertThat(priceResponse.price()).isEqualByComparingTo(new BigDecimal("30.50"));
-        assertThat(priceResponse.startDate()).isEqualTo(LocalDateTime.parse("2020-06-15T00:00:00"));
-        assertThat(priceResponse.endDate()).isEqualTo(LocalDateTime.parse("2020-06-15T11:00:00"));
+        assertThat(priceResponse.getProductId()).isEqualTo(PRODUCT_ID);
+        assertThat(priceResponse.getBrandId()).isEqualTo(BRAND_ID);
+        assertThat(priceResponse.getPriceList()).isEqualTo(3);
+        assertThat(priceResponse.getPrice()).isEqualTo(30.50);
+        assertThat(priceResponse.getStartDate()).isEqualTo(LocalDateTime.parse("2020-06-15T00:00:00"));
+        assertThat(priceResponse.getEndDate()).isEqualTo(LocalDateTime.parse("2020-06-15T11:00:00"));
 
         System.out.println("✅ Test 4 PASSED: " + priceResponse);
     }
@@ -152,12 +157,12 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         PriceResponse priceResponse = queryPrice(applicationDate);
 
         assertThat(priceResponse).isNotNull();
-        assertThat(priceResponse.productId()).isEqualTo(PRODUCT_ID);
-        assertThat(priceResponse.brandId()).isEqualTo(BRAND_ID);
-        assertThat(priceResponse.priceList()).isEqualTo(4);
-        assertThat(priceResponse.price()).isEqualByComparingTo(new BigDecimal("38.95"));
-        assertThat(priceResponse.startDate()).isEqualTo(LocalDateTime.parse("2020-06-15T16:00:00"));
-        assertThat(priceResponse.endDate()).isEqualTo(LocalDateTime.parse("2020-12-31T23:59:59"));
+        assertThat(priceResponse.getProductId()).isEqualTo(PRODUCT_ID);
+        assertThat(priceResponse.getBrandId()).isEqualTo(BRAND_ID);
+        assertThat(priceResponse.getPriceList()).isEqualTo(4);
+        assertThat(priceResponse.getPrice()).isEqualTo(38.95);
+        assertThat(priceResponse.getStartDate()).isEqualTo(LocalDateTime.parse("2020-06-15T16:00:00"));
+        assertThat(priceResponse.getEndDate()).isEqualTo(LocalDateTime.parse("2020-12-31T23:59:59"));
 
         System.out.println("✅ Test 5 PASSED: " + priceResponse);
     }
@@ -171,7 +176,7 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         // When & Then
         webTestClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/prices")
+                        .path("/v1/prices")
                         .queryParam("applicationDate", "2020-06-14T10:00:00")
                         .queryParam("productId", nonExistentProductId)
                         .queryParam("brandId", BRAND_ID)
@@ -188,7 +193,7 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
         // Given - invalid product ID (string instead of number)
         webTestClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/prices")
+                        .path("/v1/prices")
                         .queryParam("applicationDate", "2020-06-14T10:00:00")
                         .queryParam("productId", "invalid")
                         .queryParam("brandId", BRAND_ID)
@@ -208,7 +213,7 @@ class PriceControllerIntegrationTest extends AbstractIntegrationTest {
     private PriceResponse queryPrice(String applicationDate) {
         return webTestClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/prices")
+                        .path("/v1/prices")
                         .queryParam("applicationDate", applicationDate)
                         .queryParam("productId", PRODUCT_ID)
                         .queryParam("brandId", BRAND_ID)

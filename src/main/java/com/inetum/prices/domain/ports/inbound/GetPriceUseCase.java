@@ -34,15 +34,15 @@ public interface GetPriceUseCase {
      * <b>Business Logic:</b>
      * <ol>
      *   <li>Find all prices matching brand, product, and date range</li>
-     *   <li>If multiple prices found, select the one with highest priority</li>
+     *   <li>If multiple prices found, select the one with the highest priority</li>
      *   <li>If no price found, emit Mono.error(PriceNotFoundException)</li>
      * </ol>
      *
      * @param applicationDate the date/time to query (must not be null)
      * @param productId       the product identifier (must not be null)
      * @param brandId         the brand identifier (must not be null)
-     * @return Mono emitting the applicable Price with highest priority, or error if not found
-     * @throws IllegalArgumentException if any parameter is null (emitted as Mono.error)
+     * @return Mono emitting the applicable Price with the highest priority, or error if not found
+     * @throws IllegalArgumentException if any parameter is null (emitted as @{@link Mono.Error})
      */
     Mono<Price> getApplicablePrice(LocalDateTime applicationDate, ProductId productId, BrandId brandId);
 }

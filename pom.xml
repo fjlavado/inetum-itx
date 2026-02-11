@@ -21,6 +21,7 @@
 		<r2dbc-postgresql.version>1.0.6.RELEASE</r2dbc-postgresql.version>
 		<jacoco.version>0.8.11</jacoco.version>
 		<sonar.version>3.10.0.2594</sonar.version>
+		<openapi-generator.version>7.19.0</openapi-generator.version>
 	</properties>
 	<dependencies>
 		<!-- Reactive Web Stack -->
@@ -52,6 +53,19 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+
+		<!-- Swagger/OpenAPI Annotations (required by generated code) -->
+		<dependency>
+			<groupId>io.swagger.core.v3</groupId>
+			<artifactId>swagger-annotations</artifactId>
+			<version>2.2.42</version>
+		</dependency>
+
+		<!-- Jackson Annotations (required by generated code) -->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-annotations</artifactId>
+		</dependency>
 
 	<!-- Spring Cache with Caffeine -->
 	<dependency>
@@ -168,6 +182,45 @@
 					</excludes>
 				</configuration>
 			</plugin>
+
+			<!-- OpenAPI Generator Plugin for API-First Design -->
+			<plugin>
+				<groupId>org.openapitools</groupId>
+				<artifactId>openapi-generator-maven-plugin</artifactId>
+				<version>${openapi-generator.version}</version>
+				<executions>
+					<execution>
+						<id>generate-api</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>${project.basedir}/src/main/resources/openapi/openapi.yml</inputSpec>
+							<generatorName>spring</generatorName>
+							<output>${project.build.directory}/generated-sources/openapi</output>
+							<apiPackage>com.inetum.prices.application.rest.api.generated</apiPackage>
+							<modelPackage>com.inetum.prices.application.rest.dto.generated</modelPackage>
+							<configOptions>
+								<reactive>true</reactive>
+								<interfaceOnly>true</interfaceOnly>
+								<useSpringBoot3>true</useSpringBoot3>
+								<skipDefaultInterface>true</skipDefaultInterface>
+								<useJakartaEe>true</useJakartaEe>
+								<dateLibrary>java8</dateLibrary>
+								<useBeanValidation>true</useBeanValidation>
+								<openApiNullable>false</openApiNullable>
+							</configOptions>
+							<typeMappings>
+								<typeMapping>OffsetDateTime=java.time.LocalDateTime</typeMapping>
+							</typeMappings>
+							<importMappings>
+								<importMapping>OffsetDateTime=java.time.LocalDateTime</importMapping>
+							</importMappings>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -222,26 +275,12 @@
 			</plugin>
 
 			<!-- JMeter Maven Plugin for Performance Testing -->
+			<!-- Note: Executions are not bound to lifecycle phases by default -->
+			<!-- Run explicitly with: mvn jmeter:configure jmeter:jmeter jmeter:results -->
 			<plugin>
 				<groupId>com.lazerycode.jmeter</groupId>
 				<artifactId>jmeter-maven-plugin</artifactId>
 				<version>3.7.0</version>
-				<executions>
-					<execution>
-						<id>jmeter-tests</id>
-						<goals>
-							<goal>jmeter</goal>
-						</goals>
-						<phase>integration-test</phase>
-					</execution>
-					<execution>
-						<id>jmeter-check-results</id>
-						<goals>
-							<goal>results</goal>
-						</goals>
-						<phase>verify</phase>
-					</execution>
-				</executions>
 				<configuration>
 					<!-- Test files directory -->
 					<testFilesDirectory>${project.basedir}/src/test/jmeter</testFilesDirectory>
@@ -317,11 +356,24 @@
 				</executions>
 				<configuration>
 					<excludes>
-						<!-- Exclude generated code -->
+						<!-- Exclude generated code (OpenAPI, MapStruct) -->
 						<exclude>**/com/inetum/prices/application/rest/dto/**</exclude>
+						<exclude>**/com/inetum/prices/application/rest/dto/generated/**</exclude>
+						<exclude>**/com/inetum/prices/application/rest/api/generated/**</exclude>
+						<exclude>**/com/inetum/prices/application/rest/invoker/generated/**</exclude>
+						<exclude>**/com/inetum/prices/application/rest/mapper/*Impl.class</exclude>
+						<exclude>**/com/inetum/prices/domain/service/mapper/*Impl.class</exclude>
+
+						<!-- Exclude configuration classes (Spring beans setup only) -->
 						<exclude>**/com/inetum/prices/application/config/**</exclude>
+
+						<!-- Exclude infrastructure entities and converters (JPA/R2DBC boilerplate) -->
 						<exclude>**/com/inetum/prices/infrastructure/persistence/entity/**</exclude>
 						<exclude>**/com/inetum/prices/infrastructure/persistence/converter/**</exclude>
+
+						<!-- Exclude value objects interface (marker interface only) -->
+						<exclude>**/com/inetum/prices/domain/model/valueobject/SingleValueObject.class</exclude>
+
 						<!-- Exclude main application class -->
 						<exclude>**/PricesApplication.class</exclude>
 					</excludes>

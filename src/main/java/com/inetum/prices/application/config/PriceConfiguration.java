@@ -3,6 +3,7 @@ package com.inetum.prices.application.config;
 import com.inetum.prices.domain.ports.inbound.GetPriceUseCase;
 import com.inetum.prices.domain.ports.outbound.ProductPriceTimelineRepositoryPort;
 import com.inetum.prices.domain.service.PriceService;
+import com.inetum.prices.domain.service.mapper.PriceDomainMapper;
 import com.inetum.prices.infrastructure.persistence.adapter.PostgreSQLProductPriceTimelineAdapter;
 import com.inetum.prices.infrastructure.persistence.mapper.ProductPriceTimelineEntityMapper;
 import com.inetum.prices.infrastructure.persistence.repository.SpringDataProductPriceTimelineRepository;
@@ -64,12 +65,14 @@ public class PriceConfiguration {
      * price resolution instead of SQL-based filtering.
      *
      * @param timelineRepository the CQRS repository implementation
+     * @param priceDomainMapper the mapper for converting PriceRule to Price
      * @return the configured use case
      */
     @Bean
     public GetPriceUseCase getPriceUseCase(
-            ProductPriceTimelineRepositoryPort timelineRepository) {
-        return new PriceService(timelineRepository);
+            ProductPriceTimelineRepositoryPort timelineRepository,
+            PriceDomainMapper priceDomainMapper) {
+        return new PriceService(timelineRepository, priceDomainMapper);
     }
 
 }

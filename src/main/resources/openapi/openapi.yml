@@ -1,0 +1,307 @@
+openapi: 3.0.3
+info:
+  title: Prices API
+  description: |-
+    High-performance reactive pricing query system for e-commerce.
+
+    This API provides real-time price lookups based on application date, product, and brand,
+    implementing a CQRS pattern with JSONB storage for optimal read performance.
+
+    **Architecture**: Spring WebFlux (reactive), R2DBC, PostgreSQL, Caffeine Cache
+
+    **Performance**: 50K req/sec throughput, <10ms p95 latency, >95% cache hit rate
+  version: 1.0.0
+  contact:
+    name: Inetum Prices Team
+    email: prices-api@inetum.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.inetum.com
+    description: Production server
+
+tags:
+  - name: prices
+    description: Price query operations
+
+paths:
+  /v1/prices:
+    get:
+      tags:
+        - prices
+      summary: Get applicable price
+      description: |-
+        Retrieves the applicable price for a product and brand at a specific date/time.
+
+        **Business Logic**:
+        - Filters prices valid at the specified application date
+        - Selects the price with the highest priority when multiple matches exist
+        - Returns 404 if no applicable price is found
+
+        **Performance**:
+        - Cached responses: <1ms (95%+ cache hit rate)
+        - Database queries: 1-2ms
+        - Typical response time: <10ms (p95)
+      operationId: getPrice
+      parameters:
+        - name: applicationDate
+          in: query
+          description: |-
+            Date and time to evaluate price applicability (ISO 8601 format).
+
+            **Format**: `yyyy-MM-dd'T'HH:mm:ss` (e.g., `2020-06-14T10:00:00`)
+
+            **Note**: No timezone - interpreted as system local time
+          required: true
+          schema:
+            type: string
+            format: date-time
+          example: "2020-06-14T10:00:00"
+
+        - name: productId
+          in: query
+          description: |-
+            Unique product identifier.
+
+            **Example**: `35455` (Product SKU)
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          example: 35455
+
+        - name: brandId
+          in: query
+          description: |-
+            Brand identifier (e.g., ZARA = 1).
+
+            **Example**: `1` (ZARA brand)
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          example: 1
+
+      responses:
+        '200':
+          description: |-
+            Price found successfully.
+
+            Returns the applicable price with the highest priority for the given date, product, and brand.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceResponse'
+              examples:
+                standardPrice:
+                  summary: Standard price (Price List 1)
+                  value:
+                    productId: 35455
+                    brandId: 1
+                    priceList: 1
+                    startDate: "2020-06-14T00:00:00"
+                    endDate: "2020-12-31T23:59:59"
+                    price: 35.50
+                promotionalPrice:
+                  summary: Promotional price (higher priority)
+                  value:
+                    productId: 35455
+                    brandId: 1
+                    priceList: 2
+                    startDate: "2020-06-14T15:00:00"
+                    endDate: "2020-06-14T18:30:00"
+                    price: 25.45
+
+        '400':
+          description: |-
+            Invalid request parameters.
+
+            **Common causes**:
+            - Missing required parameter (applicationDate, productId, brandId)
+            - Invalid parameter format (non-numeric ID, malformed date)
+            - Invalid parameter value (negative ID, null date)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingParameter:
+                  summary: Missing required parameter
+                  value:
+                    type: "about:blank"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Required request parameter 'applicationDate' is not present"
+                    instance: "/v1/prices"
+                invalidFormat:
+                  summary: Invalid date format
+                  value:
+                    type: "about:blank"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Failed to convert value of type 'java.lang.String' to required type 'java.time.LocalDateTime'"
+                    instance: "/v1/prices"
+                invalidValue:
+                  summary: Invalid parameter value
+                  value:
+                    type: "about:blank"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "getPrice.productId: must be greater than or equal to 1"
+                    instance: "/v1/prices"
+
+        '404':
+          description: |-
+            No applicable price found.
+
+            **Causes**:
+            - No price defined for the product/brand combination
+            - No price valid at the specified application date
+            - Price timeline exists but no rules match the date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                type: "about:blank"
+                title: "Not Found"
+                status: 404
+                detail: "Price not found for product 35455 and brand 1 at 2020-06-14T10:00:00"
+                instance: "/v1/prices?applicationDate=2020-06-14T10:00:00&productId=35455&brandId=1"
+
+        '500':
+          description: |-
+            Internal server error.
+
+            **Causes**:
+            - Database connection failure
+            - Unexpected runtime exception
+            - Data integrity issues
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                type: "about:blank"
+                title: "Internal Server Error"
+                status: 500
+                detail: "An unexpected error occurred"
+                instance: "/v1/prices"
+
+components:
+  schemas:
+    PriceResponse:
+      type: object
+      description: |-
+        Price information response.
+
+        Contains the applicable price details including validity period and price list identifier.
+      required:
+        - productId
+        - brandId
+        - priceList
+        - startDate
+        - endDate
+        - price
+      properties:
+        productId:
+          type: integer
+          format: int64
+          description: Product identifier
+          example: 35455
+        brandId:
+          type: integer
+          format: int64
+          description: Brand identifier (e.g., 1 = ZARA)
+          example: 1
+        priceList:
+          type: integer
+          format: int64
+          description: |-
+            Price list identifier.
+
+            **Priority order** (higher = more priority):
+            - 1: Standard pricing
+            - 2: Promotional pricing (overrides standard)
+            - 3: Special event pricing
+            - 4: Flash sale pricing
+          example: 1
+        startDate:
+          type: string
+          format: date-time
+          description: Price validity start date/time (ISO 8601)
+          example: "2020-06-14T00:00:00"
+        endDate:
+          type: string
+          format: date-time
+          description: Price validity end date/time (ISO 8601)
+          example: "2020-12-31T23:59:59"
+        price:
+          type: number
+          format: double
+          description: Price amount in EUR (2 decimal places)
+          minimum: 0
+          example: 35.50
+
+    ErrorResponse:
+      type: object
+      description: |-
+        RFC 9457 Problem Details for HTTP APIs.
+
+        Standard error response format providing machine-readable details about API errors.
+        Conforms to RFC 9457 specification for consistent error handling across HTTP APIs.
+
+        **Specification**: https://www.rfc-editor.org/rfc/rfc9457.html
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          format: uri
+          description: |-
+            A URI reference (RFC 3986) that identifies the problem type.
+
+            This URI should provide human-readable documentation when dereferenced.
+            When this member is not present, its value is assumed to be "about:blank".
+          example: "about:blank"
+          default: "about:blank"
+        title:
+          type: string
+          description: |-
+            A short, human-readable summary of the problem type.
+
+            This should not change between occurrences of the same problem type,
+            except for localization purposes.
+          example: "Price Not Found"
+        status:
+          type: integer
+          format: int32
+          description: |-
+            The HTTP status code generated by the origin server for this occurrence.
+
+            This is for convenience and may be used for programmatic error handling.
+          example: 404
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+          description: |-
+            A human-readable explanation specific to this occurrence of the problem.
+
+            This field should focus on helping the client correct the problem.
+          example: "Price not found for product 35455 and brand 1 at 2020-06-14T10:00:00"
+        instance:
+          type: string
+          format: uri
+          description: |-
+            A URI reference that identifies the specific occurrence of the problem.
+
+            This may or may not yield further information if dereferenced.
+          example: "/v1/prices?applicationDate=2020-06-14T10:00:00&productId=35455&brandId=1"

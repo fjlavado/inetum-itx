@@ -1,9 +1,12 @@
 package com.inetum.prices.infrastructure.persistence.mapper;
 
 import com.inetum.prices.domain.model.ProductPriceTimeline;
+import com.inetum.prices.domain.model.valueobject.SingleValueObject;
 import com.inetum.prices.infrastructure.persistence.entity.ProductPriceTimelineEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
+import java.util.Optional;
 
 /**
  * MapStruct mapper for converting between ProductPriceTimeline domain model
@@ -27,8 +30,8 @@ public interface ProductPriceTimelineEntityMapper {
      * @param entity the JPA entity
      * @return the domain model
      */
-    @Mapping(target = "productId", expression = "java(new ProductId(entity.getProductId()))")
-    @Mapping(target = "brandId", expression = "java(new BrandId(entity.getBrandId()))")
+    @Mapping(target = "productId.value", source = "entity.productId")
+    @Mapping(target = "brandId.value", source = "entity.brandId")
     @Mapping(target = "rules", source = "priceRules")
     ProductPriceTimeline toDomain(ProductPriceTimelineEntity entity);
 
@@ -38,11 +41,15 @@ public interface ProductPriceTimelineEntityMapper {
      * @param domain the domain model
      * @return the JPA entity
      */
-    @Mapping(target = "productId", expression = "java(domain.getProductId().value())")
-    @Mapping(target = "brandId", expression = "java(domain.getBrandId().value())")
+    @Mapping(target = "productId", source = "domain.productId")
+    @Mapping(target = "brandId", source = "domain.brandId")
     @Mapping(target = "priceRules", source = "rules")
     @Mapping(target = "version", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     ProductPriceTimelineEntity toEntity(ProductPriceTimeline domain);
+
+    default <T> T mapVo(SingleValueObject<T> vo) {
+        return Optional.ofNullable(vo).map(SingleValueObject::value).orElse(null);
+    }
 }
