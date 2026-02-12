@@ -20,6 +20,8 @@ jobs:
   build:
     name: Build and Test
     runs-on: ubuntu-latest
+    environment:
+      name: test
 
     services:
       postgres:
@@ -92,7 +94,9 @@ jobs:
       - name: Build and analyze
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: echo $SONAR_TOKEN && mvn -B verify -DskipTests org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=fjlavado_inetum-itx
+        run: | 
+          echo $SONAR_TOKEN 
+          mvn -B verify -DskipTests org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=fjlavado_inetum-itx
 
       - name: Check SonarCloud Quality Gate
         if: (github.event_name == 'push' || github.event_name == 'pull_request')
