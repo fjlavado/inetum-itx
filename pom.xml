@@ -20,9 +20,10 @@
 		<testcontainers.version>1.19.3</testcontainers.version>
 		<r2dbc-postgresql.version>1.0.6.RELEASE</r2dbc-postgresql.version>
 		<jacoco.version>0.8.11</jacoco.version>
-		<sonar.version>5.5.0.6356</sonar.version>
 		<openapi-generator.version>7.19.0</openapi-generator.version>
+		<sonar.version>5.5.0.6356</sonar.version>
 		<sonar.organization>fjlavado</sonar.organization>
+		<sonar.projectKey>fjlavado_inetum-itx</sonar.projectKey>
 	</properties>
 	<dependencies>
 		<!-- Reactive Web Stack -->
