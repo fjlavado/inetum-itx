@@ -375,7 +375,7 @@ make perf-report
 ```
 Build & Test → Performance Tests (main only) → Package (main only)
      ↓
-  SonarQube
+  SonarCloud
   Quality Gate
 ```
 
@@ -383,14 +383,28 @@ Build & Test → Performance Tests (main only) → Package (main only)
 
 1. ✅ **Compile**: Java 21 with Maven cache
 2. ✅ **Unit Tests**: Fast, isolated tests
-3. ✅ **Integration Tests**: Testcontainers with PostgreSQL
+3. ✅ **Integration Tests**: Testcontainers with PostgreSQL (GitHub Environment: test)
 4. ✅ **JaCoCo Coverage**: Generate and upload reports
-5. ✅ **SonarQube Analysis**: Code quality + coverage
+5. ✅ **SonarCloud Analysis**: Automated code quality + coverage (cloud-hosted)
 6. ✅ **Quality Gate**: Enforce ≥75% coverage, A-rating
 7. ✅ **Performance Tests**: JMeter baseline (main branch)
 8. ✅ **Package**: Create JAR artifact
 
-### Local SonarQube
+### SonarCloud Integration (CI/CD)
+
+The CI/CD pipeline uses **SonarCloud** (cloud-hosted service) for automated code quality analysis:
+
+- **Project**: `fjlavado_inetum-itx`
+- **Organization**: `fjlavado`
+- **URL**: https://sonarcloud.io
+- **Configuration**: Centralized in `pom.xml` properties
+- **Authentication**: GitHub Actions secret `SONAR_TOKEN` only
+
+**No manual setup required** - SonarCloud analyzes every push and pull request automatically.
+
+### Local SonarQube (Development Testing)
+
+For local development testing, you can run SonarQube in Docker:
 
 ```bash
 # Start SonarQube
@@ -402,6 +416,8 @@ make sonar-scan
 # View dashboard
 make sonar-report
 ```
+
+**Note**: Local SonarQube uses a different project configuration (`sonar-project.properties`) for development testing. This is separate from the CI/CD SonarCloud integration.
 
 📄 **Documentation**: See [docs/CI_CD.md](docs/CI_CD.md) for configuration details
 
